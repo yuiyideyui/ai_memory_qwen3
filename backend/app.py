@@ -1,4 +1,4 @@
-# app.py
+# app.py (已添加 update_role_position 处理器和广播优化)
 from datetime import datetime, timezone, timedelta
 import time
 from zoneinfo import ZoneInfo
@@ -10,9 +10,9 @@ from pydantic import BaseModel
 from typing import List, Optional
 import socketio
 import asyncio
+import math # 引入 math 用于计算距离
 
 # 从 memory_manager.py 导入记忆/时间/AI 逻辑
-# 注意：update_rest_states 是同步的，需要在 app.py 中用 asyncio.to_thread 调用
 from memory_manager import (
     add_memory, query_memory, list_roles, delete_collection, delete_all_collections,
     update_time_memory, 
@@ -34,6 +34,309 @@ from config import MIN_TOKEN_LEN_TO_STORE, START_TIME
 # -------------------------
 app = FastAPI()
 sio = socketio.AsyncServer(cors_allowed_origins="*", async_mode="asgi")
+
+# -------------------------
+# 全局变量
+# -------------------------
+time_update_task = None  # 用于存储时间更新任务
+current_accelerated_time = START_TIME # 初始虚拟时间
+TIME_ACCELERATION_RATE = 60 # 默认加速倍率 (60x)
+
+# -------------------------
+# Pydantic 模型
+# -------------------------
+
+class ChatRequest(BaseModel):
+    sender: str
+    message: str
+    x: int
+    y: int
+
+# -------------------------
+# 加速时间相关函数
+# -------------------------
+
+def get_accelerated_time() -> dict:
+    """
+    获取加速后的虚拟时间
+    """
+    global current_accelerated_time
+    # 计算实际经过的时间（从启动开始）
+    elapsed_real_time = datetime.now(CHINA_TZ) - datetime.now(CHINA_TZ).replace(hour=0, minute=0, second=0, microsecond=0)
+    
+    # 计算加速后的虚拟时间
+    elapsed_virtual_time = elapsed_real_time * TIME_ACCELERATION_RATE
+    
+    # 虚拟时间 = 起始时间 + 虚拟流逝时间
+    current_accelerated_time = START_TIME + elapsed_virtual_time
+    
+    return {
+        "timestamp": current_accelerated_time.timestamp(),
+        "formatted_time": current_accelerated_time.strftime("%Y-%m-%d %H:%M:%S")
+    }
+
+async def time_update_loop(acceleration: int):
+    """虚拟时间更新循环"""
+    global TIME_ACCELERATION_RATE
+    TIME_ACCELERATION_RATE = acceleration
+    
+    while True:
+        try:
+            time_data = get_accelerated_time()
+            
+            # 1. 广播时间
+            await sio.emit('time_update', time_data)
+            
+            # 2. 更新 AI 状态 (同步调用)
+            await asyncio.to_thread(update_time_memory, time_data["formatted_time"])
+            await asyncio.to_thread(update_rest_states, time_data["formatted_time"])
+            
+            # 3. 检查并触发 AI 思考 (可选，如果不需要频繁思考，可以移除或调整频率)
+            
+            # 休息一秒 (控制广播频率，实际加速在 get_accelerated_time 中实现)
+            await asyncio.sleep(1) 
+        except asyncio.CancelledError:
+            print("时间更新任务已取消。")
+            break
+        except Exception as e:
+            print(f"时间更新循环发生错误: {e}")
+            await asyncio.sleep(5)
+
+# -------------------------
+# Socket.IO 辅助函数
+# -------------------------
+
+async def broadcast_room_update(room_name: str = 'main', target_sid: Optional[str] = None):
+    """获取房间数据并广播给所有连接的客户端或特定客户端"""
+    try:
+        # 1. 获取房间数据 (同步操作，放入线程)
+        room = await asyncio.to_thread(get_room, room_name)
+        
+        # 2. 获取角色的当前活动状态
+        roles_with_activity = []
+        for role in room.roles:
+            role_dict = role.dict()
+            # 获取活动状态 (同步操作，放入线程)
+            activity = await asyncio.to_thread(get_role_activity, role.name)
+            role_dict["activity"] = activity
+            roles_with_activity.append(role_dict)
+            
+        # 3. 构建完整的房间数据
+        room_data = room.dict()
+        room_data["roles"] = roles_with_activity # 替换为包含活动的列表
+
+        # 4. 发送给目标客户端或广播
+        if target_sid:
+            await sio.emit('room_data_update', room_data, room=target_sid)
+        else:
+            await sio.emit('room_data_update', room_data)
+            
+    except Exception as e:
+        print(f"广播房间更新失败: {e}")
+
+# -------------------------
+# Socket.IO 事件处理 (核心逻辑)
+# -------------------------
+
+@sio.on('request_initial_data')
+async def request_initial_data(sid, data):
+    """
+    客户端连接时请求房间布局和角色的初始数据 (只发给请求的客户端)
+    """
+    room_name = data.get('room_name', 'main')
+    print(f"SocketIO: {sid} 请求房间 {room_name} 初始数据")
+    await broadcast_room_update(room_name, sid) 
+
+@sio.on('update_user_position')
+async def update_user_position(sid, data):
+    """
+    更新用户角色的位置
+    """
+    room_name = data.get('room_name', 'main')
+    role_name = data.get('role_name')
+    x = data.get('x')
+    y = data.get('y')
+    avatar = data.get('avatar', '👤')
+    
+    if role_name and x is not None and y is not None:
+        # add_role_to_room 是同步的，需要在线程中运行
+        await asyncio.to_thread(add_role_to_room, role_name, x, y, room_name, avatar)
+        
+        # 广播更新后的房间数据给所有连接的客户端
+        await broadcast_room_update(room_name, None) 
+
+@sio.on('update_role_position') # <--- 新增的 AI 角色位置更新处理器
+async def update_role_position(sid, data):
+    """
+    更新 AI 角色的位置
+    """
+    room_name = data.get('room_name', 'main')
+    role_name = data.get('role_name')
+    x = data.get('x')
+    y = data.get('y')
+    
+    if role_name and x is not None and y is not None:
+        print(f"SocketIO: 更新角色 {role_name} 位置到 ({x}, {y})")
+        # add_role_to_room 会根据名称更新现有角色（同步操作，线程中运行）
+        # 注意：这里没有提供 avatar，但 add_role_to_room 应该能处理更新现有角色的逻辑
+        await asyncio.to_thread(add_role_to_room, role_name, x, y, room_name)
+        
+        # 广播更新后的房间数据给所有连接的客户端
+        await broadcast_room_update(room_name, None)
+
+
+@sio.on('clear_room')
+async def clear_room_handler(sid, data):
+    """清空房间中除用户外的所有角色"""
+    room_name = data.get('room_name', 'main')
+    await asyncio.to_thread(clear_room, room_name, roles_to_keep=['user']) # 保持用户角色
+    
+    # 广播更新
+    await broadcast_room_update(room_name, None)
+
+@sio.on('add_role')
+async def add_role_handler(sid, data):
+    """添加新角色"""
+    room_name = data.get('room_name', 'main')
+    role_name = data.get('role_name')
+    # 客户端会发送 x, y 坐标，如果没有则默认 100
+    x = data.get('x', 100) 
+    y = data.get('y', 100)
+    avatar = data.get('avatar', '🤖')
+    
+    if role_name:
+        await asyncio.to_thread(add_role_to_room, role_name, x, y, room_name, avatar)
+        await broadcast_room_update(room_name, None)
+
+@sio.on('remove_role')
+async def remove_role_handler(sid, data):
+    """移除角色"""
+    room_name = data.get('room_name', 'main')
+    role_name = data.get('role_name')
+    
+    if role_name:
+        await asyncio.to_thread(remove_role_from_room, role_name, room_name)
+        await broadcast_room_update(room_name, None)
+
+@sio.on('start_time')
+async def start_time_handler(sid, data):
+    """启动时间加速"""
+    global time_update_task
+    acceleration = data.get('acceleration', 60)
+    if time_update_task and not time_update_task.done():
+        time_update_task.cancel()
+        
+    print(f"SocketIO: 启动时间加速: {acceleration}x")
+    time_update_task = asyncio.create_task(time_update_loop(acceleration))
+    
+    # 初始广播一次时间
+    await sio.emit('time_update', get_accelerated_time())
+
+@sio.on('stop_time')
+async def stop_time_handler(sid):
+    """停止时间加速"""
+    global time_update_task, TIME_ACCELERATION_RATE
+    if time_update_task:
+        time_update_task.cancel()
+        time_update_task = None
+    TIME_ACCELERATION_RATE = 0
+    print("SocketIO: 停止时间加速")
+    await sio.emit('time_update', get_accelerated_time())
+# -------------------------
+# FastAPI 路由 (HTTP REST API)
+# -------------------------
+
+# 挂载静态文件目录 (用于加载 index.html, style.css 等)
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+@app.get("/", response_class=HTMLResponse)
+async def get_index(request: Request):
+    """渲染主页面"""
+    # 假设 index.html 位于根目录
+    return templates.TemplateResponse("index.html", {"request": request})
+
+
+@app.post("/distance_chat/{room_name}")
+async def distance_chat(room_name: str, req: ChatRequest):
+    """
+    处理基于距离的聊天消息：
+    - 广播给附近的 AI 角色
+    - 记录到所有角色的记忆中（基于距离决定是 chat/hearing）
+    """
+    
+    # 简化实现：直接获取所有 AI 角色，不进行距离判断
+    try:
+        room = await asyncio.to_thread(get_room, room_name)
+        
+        # 排除发送者
+        ai_roles = [role for role in room.roles if role.name != req.sender]
+        
+        results = {}
+        
+        # 1. 广播给所有 AI 角色
+        for role in ai_roles:
+            
+            # 2. 让 AI 思考 (同步调用)
+            # 角色自身记忆
+            memories = await asyncio.to_thread(query_memory, role.name, req.message, top_k=5)
+            
+            # 构建 Prompt
+            prompt = build_prompt(
+                user_input=f"用户 {req.sender} 对你说: {req.message}",
+                memories=memories
+            )
+            
+            # 调用 Ollama
+            response_text = await asyncio.to_thread(run_ollama_sync, prompt)
+            
+            # 3. 记录记忆 (同步调用)
+            await asyncio.to_thread(add_memory, role.name, f"与 {req.sender} 聊天: {req.message} -> {response_text}", mtype="chat")
+            print('get_accelerated_time()',get_accelerated_time())
+            # 4. 广播回复
+            # 客户端可以根据 role_activity_update 来刷新角色的状态
+            await sio.emit('chat_message', {
+                "sender": role.name,
+                "message": response_text,
+                "time": get_accelerated_time()["formatted_time"], 
+                "color": "log-ai"
+            })
+            
+            results[role.name] = response_text
+            
+        # 5. 记录用户自身的记忆
+        if len(req.message) >= MIN_TOKEN_LEN_TO_STORE:
+            await asyncio.to_thread(add_memory, req.sender, f"对 AI 们说: {req.message}", mtype="chat")
+
+        # 6. 广播用户消息（让所有客户端显示用户消息）
+        await sio.emit('chat_message', {
+            "sender": req.sender,
+            "message": req.message,
+            "time": get_accelerated_time()["formatted_time"], 
+            "color": "log-user"
+        })
+        
+        return JSONResponse({
+            "status": "success",
+            "message": "消息已发送",
+            "results": results,
+            "total_receivers": len(ai_roles)
+        })
+        
+    except Exception as e:
+        print(f"distance_chat 失败: {e}")
+        raise HTTPException(status_code=500, detail=f"发送消息失败: {str(e)}")
+
+
+# -------------------------
+# Web Server 启动配置 (保持与 main.py 一致)
+# -------------------------
+
+# 创建 SocketIO ASGI 应用
+sio_app = socketio.ASGIApp(sio, other_asgi_app=app, socketio_path="/socket.io/")
+
+# -------------------------
+# 路由: API - 记忆管理 (保持不变)
+# -------------------------
 # 绑定 Socket.IO
 sio_app = socketio.ASGIApp(sio, app)
 

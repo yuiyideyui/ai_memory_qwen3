@@ -9,6 +9,69 @@
         body {
             font-family: Arial, sans-serif;
             margin: 20px;
+            background-color: #f4f4f4;
+        }
+
+        /* -------------------------------------- */
+        /* 布局和通用样式 */
+        /* -------------------------------------- */
+        .container {
+            display: flex;
+            gap: 20px;
+            max-width: 1200px;
+            margin: auto;
+        }
+
+        .left-panel {
+            flex: 2;
+        }
+
+        .right-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .control-group {
+            background-color: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        input[type="text"],
+        input[type="number"],
+        button {
+            padding: 8px;
+            margin-top: 5px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+            width: 95%;
+            box-sizing: border-box;
+        }
+
+        button {
+            cursor: pointer;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            transition: background-color 0.3s;
+        }
+
+        button:hover:not(:disabled) {
+            background-color: #45a049;
+        }
+
+        button:disabled {
+            background-color: #a0a0a0;
+            cursor: not-allowed;
         }
 
         /* -------------------------------------- */
@@ -20,15 +83,16 @@
             /* 尺寸将在 JS 中根据 roomData 动态设置 */
             width: 800px;
             height: 600px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
         }
 
         #room {
             position: relative;
-            /* 移除原有的网格背景和边框，由 Canvas 接管渲染 */
             cursor: crosshair;
-            width: 800px;
-            height: 600px;
-            z-index: 1;
+            width: 100%;
+            height: 100%;
+            /* z-index 确保角色元素在此之上 */
+            z-index: 1; 
         }
 
         /* 新增 Canvas 样式 */
@@ -41,9 +105,7 @@
             z-index: 0; /* 确保在角色之下 */
         }
         
-        /* -------------------------------------- */
         /* 角色样式 */
-        /* -------------------------------------- */
         .role {
             position: absolute;
             width: 60px;
@@ -53,907 +115,649 @@
             align-items: center;
             justify-content: center;
             font-size: 24px;
-            cursor: move;
-            transition: transform 0.1s;
+            transition: box-shadow 0.2s, transform 0.1s;
+            line-height: 1;
+            text-align: center;
             z-index: 10;
+            /* background-color: rgba(255, 255, 255, 0.8); */
+            border: 2px solid #333;
         }
 
-        .role.user {
-            background-color: #ADD8E6;
-            border: 3px solid #4682B4;
+        /* 用户角色样式 */
+        .role-user {
+            background-color: #ffcc00; /* 突出用户 */
+            border-color: #cc9900;
+            cursor: default; /* 用户角色不可拖拽 */
         }
 
-        .role.ai {
-            background-color: #F0E68C;
-            border: 3px solid #DAA520;
+        /* AI 角色样式 */
+        .role-ai {
+            background-color: #99ccff; /* AI 角色 */
+            border-color: #6699cc;
+            cursor: grab; /* AI 角色可拖拽 */
+        }
+        
+        .role-selected {
+            box-shadow: 0 0 10px 5px rgba(255, 0, 0, 0.8);
+            transform: scale(1.1);
+            z-index: 20;
+        }
+
+        .role-activity {
+            position: absolute;
+            bottom: -20px;
+            font-size: 12px;
+            width: max-content;
+            padding: 2px 5px;
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            border-radius: 4px;
+            white-space: nowrap;
         }
 
         /* -------------------------------------- */
-        /* 消息和控制面板样式 */
+        /* 角色信息浮窗样式 */
         /* -------------------------------------- */
-        .controls {
-            margin: 15px 0;
-            padding: 10px;
+        #roleInfo {
+            position: absolute;
+            background-color: white;
             border: 1px solid #ccc;
-            background: #f1f1f1;
-            display: flex;
-            gap: 10px;
-            align-items: center;
-        }
-
-        .chat-panel {
-            margin-top: 20px;
-            border: 1px solid #ddd;
-            padding: 15px;
-            background: #fff;
-        }
-
-        #chatLog {
-            height: 250px;
-            overflow-y: auto;
-            border: 1px solid #eee;
             padding: 10px;
-            margin-bottom: 10px;
-            background: #fafafa;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+            z-index: 100;
+            display: none;
+            width: 200px;
         }
 
-        .message {
-            margin-bottom: 5px;
+        #roleInfo p {
+            margin: 5px 0;
+        }
+
+        /* -------------------------------------- */
+        /* 聊天日志样式 */
+        /* -------------------------------------- */
+        #chatLog {
+            height: 300px;
+            overflow-y: scroll;
+            border: 1px solid #ccc;
+            padding: 10px;
+            background-color: white;
+            border-radius: 4px;
+        }
+
+        #chatLog p {
+            margin: 5px 0;
             line-height: 1.4;
         }
 
-        .user-message {
-            color: #337ab7;
+        .log-system {
+            color: gray;
+            font-weight: normal;
         }
 
-        .ai-message {
-            color: #5cb85c;
+        .log-user {
+            color: #007bff;
+            font-weight: bold;
+        }
+
+        .log-ai {
+            color: #28a745;
+            font-weight: bold;
+        }
+
+        .log-time {
+            color: #999;
+            font-size: 0.8em;
+            margin-right: 5px;
         }
         
-        /* 角色信息框样式 */
-        .role-info {
-            position: absolute;
-            background-color: white;
-            border: 1px solid #333;
-            padding: 5px 10px;
-            border-radius: 5px;
-            box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.2);
-            z-index: 2000;
-            pointer-events: none; /* 允许点击穿透到下面的角色 */
-            white-space: nowrap;
-        }
     </style>
 </head>
 
 <body>
 
     <h1>🏠 AI 屋子管理系统</h1>
-    
-    <p>当前地图：**碰撞修复版单层住宅平面图**。请使用 **W A S D** 键或拖拽人物 (👤) 移动。</p>
+    <p>
+        **操作提示:** 1. 在地图上点击设置您的位置（👤） -> 2. 点击 **保存用户位置** -> 3. 输入角色名后点击 **添加角色**。
+    </p>
 
-    <div id="room-container">
-        <canvas id="roomCanvas" width="800" height="600"></canvas>
-        <div id="room">
+    <div class="container">
+        <div class="left-panel">
+            <div id="room-container">
+                <canvas id="roomCanvas" width="800" height="600"></canvas>
+                <div id="room">
+                    </div>
             </div>
-        <div id="roleInfo" class="role-info" style="display: none;"></div>
-    </div>
 
-    <div class="controls">
-        <label for="roomName">房间:</label>
-        <input type="text" id="roomName" value="main" placeholder="房间名称">
-        <button onclick="loadRoom()">加载房间</button>
-        <button onclick="clearRoom()">清空房间</button>
-        <button id="addRoleButton" onclick="addRole()" disabled>新增 AI 角色</button>
-    </div>
+            <div id="roleInfo">
+                <p><strong>角色:</strong> <span id="infoRoleName"></span></p>
+                <p><strong>坐标:</strong> <span id="infoPosition"></span></p>
+                <p><strong>活动:</strong> <span id="infoActivity"></span></p>
+            </div>
 
-    <div class="controls">
-        <label>用户位置 (中心):</label>
-        <span id="userPosition">(N/A)</span>
-        <button id="updatePositionButton" onclick="updateRolePosition('user')" disabled>更新位置</button>
-        <button id="removeUserButton" onclick="removeRole('user')" disabled>移除用户</button>
-    </div>
-    
-    <div class="controls">
-        <label>虚拟时间:</label>
-        <span id="acceleratedTime">正在加载...</span>
-        <button onclick="toggleTimeAcceleration()">加速/暂停</button>
-    </div>
-
-    <div class="chat-panel">
-        <h2>聊天与指令</h2>
-        <div id="chatLog"></div>
-        <div style="display: flex; gap: 10px;">
-            <input type="text" id="chatMessage" placeholder="向 AI 角色发送指令或对话" style="flex-grow: 1;">
-            <button onclick="sendMessage()">发送</button>
+            <div class="control-group">
+                <h3>🗣️ 聊天区</h3>
+                <label for="chatMessage">输入消息:</label>
+                <input type="text" id="chatMessage" placeholder="与附近的 AI 角色交流..." autocomplete="off">
+                <button id="sendChatBtn" disabled>发送消息</button>
+            </div>
         </div>
-        <p>Tip: 尝试发送“现在几点”来获取虚拟时间，或发送“你在做什么？”来查询角色的当前活动。</p>
+
+        <div class="right-panel">
+            <div class="control-group">
+                <h3>🤖 角色管理</h3>
+                <label for="userNameInput">用户名称:</label>
+                <input type="text" id="userNameInput" value="user">
+
+                <label>用户位置 (点击地图设置):</label>
+                <p id="userPosition" style="font-weight: bold;">(100, 100) 默认</p>
+                <button id="saveUserBtn" disabled>保存用户位置</button>
+                <hr style="margin: 10px 0;">
+
+                <label for="newRoleName">新角色名称:</label>
+                <input type="text" id="newRoleName" placeholder="例如: 妈妈/AI小李">
+                <button id="addRoleBtn">添加角色</button>
+                <button id="clearRoomBtn" style="background-color: #dc3545; margin-top: 10px;">清空AI角色</button>
+            </div>
+
+            <div class="control-group">
+                <h3>⏱️ 时间控制</h3>
+                <label for="currentTime">当前虚拟时间:</label>
+                <p id="currentTime" style="font-weight: bold;">--/--</p>
+                
+                <label for="timeAcceleration">加速倍率 (1-1000x):</label>
+                <input type="number" id="timeAcceleration" value="60" min="1" max="1000">
+                <button id="startTimeBtn">启动时间加速</button>
+                <button id="stopTimeBtn" disabled style="background-color: #ffc107;">停止时间</button>
+            </div>
+
+            <div class="control-group">
+                <h3>📜 实时日志</h3>
+                <div id="chatLog">
+                    </div>
+            </div>
+        </div>
     </div>
 
     <script>
-        const socket = io();
-        let currentRoomName = "main";
-        let userPosition = null;
-        let roomDimensions = { width: 800, height: 600 };
-
-        // ❌ 新增全局变量
+        // ----------------------------------------------------
+        // I. 全局变量与初始化
+        // ----------------------------------------------------
+        const socket = io({ path: '/socket.io/' });
+        const roomElement = document.getElementById("room");
+        const chatLog = document.getElementById("chatLog");
+        const roleSize = 60; // 角色图标的直径
+        
+        let userName = document.getElementById("userNameInput").value;
+        let userPosition = { x: 100, y: 100 };
+        let roomData = null; // 存储服务器传来的完整房间数据
+        let roomDimensions = { width: 800, height: 600 }; // 房间尺寸
+        
+        // 拖拽相关变量 (新增 for AI roles)
+        let isDragging = false;
+        let draggedRole = null;
+        let offsetX = 0;
+        let offsetY = 0;
+        
+        // Canvas 变量
         const canvas = document.getElementById('roomCanvas');
         const ctx = canvas.getContext('2d');
-        let roomData = null; // 用于存储从服务器获取的完整房间数据
-        const MOVE_SPEED = 3;
-        const roleSize = 60; // HTML 角色 div 的尺寸
+        const collisionRadius = 20; // 用于碰撞检测的圆形半径 (稍微小于角色尺寸/2)
 
-        // ------------------------------------
-        // Socket.IO 消息处理 (保持原有功能)
-        // ------------------------------------
+        // ----------------------------------------------------
+        // II. Socket.IO 事件监听
+        // ----------------------------------------------------
 
-        socket.on('connect', () => {
-            console.log('已连接到服务器');
-            loadRoom(); // 连接后默认加载房间
+        socket.on('connect', function () {
+            logMessage("System", `已连接到服务器. Socket ID: ${socket.id}`, getTime(), "log-system");
+            // 首次连接时请求房间数据和角色列表
+            socket.emit('request_initial_data', { room_name: 'main' }); 
         });
 
-        socket.on('room_update', (data) => {
-            console.log('房间数据更新:', data);
-            
-            // ❌ 更新全局 roomData 并重新绘制地图
-            roomData = data; 
-            drawRoomMap(); 
+        socket.on('disconnect', function () {
+            logMessage("System", "与服务器断开连接.", getTime(), "log-system");
+        });
 
-            // 更新 roomDimensions 并设置容器大小
-            roomDimensions = { width: data.width, height: data.height };
-            document.getElementById("room").style.width = roomDimensions.width + 'px';
-            document.getElementById("room").style.height = roomDimensions.height + 'px';
+        socket.on('room_data_update', function (data) {
+            roomData = data;
+            console.log("收到房间数据更新:", roomData);
+            
+            // 1. 更新房间尺寸
+            roomDimensions.width = roomData.width || 800;
+            roomDimensions.height = roomData.height || 600;
             canvas.width = roomDimensions.width;
             canvas.height = roomDimensions.height;
+            roomElement.style.width = roomDimensions.width + 'px';
+            roomElement.style.height = roomDimensions.height + 'px';
             document.getElementById("room-container").style.width = roomDimensions.width + 'px';
             document.getElementById("room-container").style.height = roomDimensions.height + 'px';
 
+            // 2. 渲染房间布局 (Canvas)
+            renderLayout(roomData.layout);
 
-            // 清理并重新渲染角色
-            const roomDiv = document.getElementById("room");
-            const existingRoles = Array.from(roomDiv.querySelectorAll('.role'));
-            const existingRoleNames = existingRoles.map(el => el.dataset.roleName);
-            const newRoleNames = data.roles.map(r => r.name);
-
-            // 移除不再存在的角色
-            existingRoles.filter(el => !newRoleNames.includes(el.dataset.roleName))
-                .forEach(el => el.parentElement.remove());
-
-            // 添加或更新存在的角色
-            data.roles.forEach(role => {
-                if (role.name.toLowerCase() === 'user') {
-                    // 更新用户角色位置和状态
-                    userPosition = { x: role.x, y: role.y };
-                    document.getElementById("userPosition").innerText = 
-                        `(${userPosition.x}, ${userPosition.y}) 已设置`;
-                    updateUserButtons(true);
-                    updateUserRoleDisplay(role); // 确保用户图标显示
-                } else {
-                    addRoleToRoom(role);
-                }
-            });
+            // 3. 渲染角色 (HTML Elements)
+            renderRoles(roomData.roles);
         });
         
-        socket.on('time_update', (data) => {
-            document.getElementById('acceleratedTime').innerText = 
-                `${data.formatted_time} (倍速: ${data.multiplier}x)`;
+        socket.on('chat_message', function (data) {
+            const cssClass = data.sender === userName ? "log-user" : "log-ai";
+            logMessage(data.sender, data.message, data.time, cssClass);
         });
 
-        socket.on('chat_message', (data) => {
-            appendMessage(data.role, data.message);
+        socket.on('time_update', function (data) {
+            document.getElementById("currentTime").innerText = data.formatted_time;
         });
         
-        socket.on('role_activity', (data) => {
-            const roleElement = document.querySelector(`.role[data-role-name="${data.role_name}"]`);
-            if (roleElement) {
-                // 仅更新角色的状态描述
-                roleElement.dataset.activity = data.activity;
-                
-                // 确保用户点击时信息能被展示
-                if (document.getElementById("roleInfo").dataset.roleName === data.role_name) {
-                     showRoleInfo(roleElement);
-                }
-            }
-        });
+        // ----------------------------------------------------
+        // III. 渲染函数
+        // ----------------------------------------------------
 
-
-        // ------------------------------------
-        // 房间地图渲染逻辑 (从 room.html 复制/修改)
-        // ------------------------------------
-        
-        function drawFurniture(item, ctx) {
-            ctx.strokeStyle = '#333';
-            ctx.lineWidth = 1;
-
-            if (item.type === 'bed') {
-                ctx.fillStyle = item.color;
-                ctx.fillRect(item.x, item.y, item.width, item.height);
-                ctx.fillStyle = '#555';
-                ctx.fillRect(item.x, item.y, item.width, 10);
-                ctx.fillStyle = '#FFFFFF';
-                ctx.fillRect(item.x + 10, item.y + 15, item.width / 4, 20);
-                ctx.fillRect(item.x + item.width - 10 - item.width / 4, item.y + 15, item.width / 4, 20);
-            } else if (item.type === 'sofa') {
-                ctx.fillStyle = item.color;
-                ctx.fillRect(item.x, item.y, item.width, item.height);
-                ctx.fillStyle = '#777';
-                ctx.fillRect(item.x, item.y, item.width, 10);
-                ctx.strokeRect(item.x, item.y, item.width, item.height);
-            } else if (item.type === 'table') {
-                ctx.fillStyle = item.color;
-                ctx.fillRect(item.x, item.y, item.width, item.height);
-                ctx.strokeStyle = '#4682B4';
-                ctx.lineWidth = 2;
-                ctx.strokeRect(item.x + 10, item.y + 10, item.width - 20, item.height - 20);
-            } else if (item.type === 'counter' || item.type === 'cabinet' || item.type === 'fridge' || item.type === 'closet') {
-                ctx.fillStyle = item.color;
-                ctx.fillRect(item.x, item.y, item.width, item.height);
-                ctx.strokeStyle = '#333';
-                ctx.lineWidth = 1;
-                ctx.strokeRect(item.x, item.y, item.width, item.height);
-                ctx.strokeStyle = '#777';
-                ctx.lineWidth = 1;
-                ctx.beginPath();
-                ctx.moveTo(item.x + 3, item.y + 3);
-                ctx.lineTo(item.x + item.width - 3, item.y + 3);
-                ctx.moveTo(item.x + 3, item.y + item.height - 3);
-                ctx.lineTo(item.x + item.width - 3, item.y + item.height - 3);
-                ctx.stroke();
-            } else if (item.type === 'shower') {
-                ctx.strokeStyle = '#1E90FF';
-                ctx.lineWidth = 2;
-                ctx.strokeRect(item.x, item.y, item.width, item.height);
-                ctx.strokeStyle = '#ADD8E6';
-                ctx.lineWidth = 1;
-                ctx.beginPath();
-                ctx.moveTo(item.x, item.y);
-                ctx.lineTo(item.x + item.width, item.y + item.height);
-                ctx.stroke();
-            } else if (item.type === 'toilet') {
-                ctx.fillStyle = item.color;
-                ctx.fillRect(item.x, item.y, item.width, item.height);
-                ctx.strokeStyle = '#333';
-                ctx.lineWidth = 1;
-                ctx.strokeRect(item.x, item.y, item.width, item.height);
-                ctx.beginPath();
-                ctx.arc(item.x + item.width / 2, item.y + item.height / 2, item.width / 4, 0, 2 * Math.PI);
-                ctx.stroke();
-            } else if (item.type === 'sink') {
-                ctx.fillStyle = item.color;
-                ctx.fillRect(item.x, item.y, item.width, item.height);
-                ctx.strokeStyle = '#333';
-                ctx.lineWidth = 1;
-                ctx.strokeRect(item.x, item.y, item.width, item.height);
-                ctx.beginPath();
-                ctx.arc(item.x + item.width / 2, item.y + item.height / 2, item.width / 4, 0, Math.PI, true);
-                ctx.stroke();
-            } else {
-                ctx.fillStyle = item.color || '#D3D3D3';
-                ctx.fillRect(item.x, item.y, item.width, item.height);
-                ctx.strokeStyle = '#333';
-                ctx.lineWidth = 1;
-                ctx.strokeRect(item.x, item.y, item.width, item.height);
-            }
-        }
-
-        function drawRoomMap() {
-            if (!roomData || !roomData.layout) return;
-
+        function renderLayout(layout) {
+            // 清除 Canvas
             ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // 渲染区域 (Areas)
+            if (layout && layout.areas) {
+                layout.areas.forEach(area => {
+                    ctx.fillStyle = area.color;
+                    ctx.fillRect(area.x, area.y, area.width, area.height);
+                    ctx.strokeStyle = '#ccc';
+                    ctx.strokeRect(area.x, area.y, area.width, area.height);
+                });
+            }
 
-            // 绘制区域 (Area)
-            roomData.layout.areas.forEach(area => {
-                ctx.fillStyle = area.color;
-                ctx.fillRect(area.x, area.y, area.width, area.height);
-                
-                ctx.fillStyle = "#333";
-                ctx.font = "16px Arial";
-                ctx.textAlign = "center";
-                ctx.fillText(area.name, area.x + area.width / 2, area.y + 20);
-            });
+            // 渲染墙壁 (Walls)
+            if (layout && layout.walls) {
+                layout.walls.forEach(wall => {
+                    ctx.beginPath();
+                    ctx.lineWidth = wall.thickness;
+                    ctx.strokeStyle = wall.isOuter ? '#333' : '#555';
+                    ctx.moveTo(wall.x1, wall.y1);
+                    ctx.lineTo(wall.x2, wall.y2);
+                    ctx.stroke();
+                });
+            }
 
-            // 绘制家具 (Furniture)
-            roomData.layout.furniture.forEach(item => {
-                drawFurniture(item, ctx);
-            });
+            // 渲染门窗 (Doors/Windows)
+            if (layout && layout.doors) {
+                layout.doors.forEach(door => {
+                    // 门的中心点
+                    const centerX = door.direction === 'horizontal' ? door.x + door.width / 2 : door.x;
+                    const centerY = door.direction === 'vertical' ? door.y + door.width / 2 : door.y;
 
-            // 绘制墙壁 (Wall)
-            roomData.layout.walls.forEach(wall => {
-                const lineStart = { x: wall.x1, y: wall.y1 };
-                const lineEnd = { x: wall.x2, y: wall.y2 };
-                
-                ctx.strokeStyle = wall.isOuter ? '#333' : '#666';
-                ctx.lineWidth = wall.thickness;
-                ctx.beginPath();
-                ctx.moveTo(lineStart.x, lineStart.y);
-                ctx.lineTo(lineEnd.x, lineEnd.y);
-                ctx.stroke();
-                
-                ctx.shadowBlur = 0;
-            });
+                    // 绘制门洞
+                    ctx.beginPath();
+                    ctx.lineWidth = door.thickness + 2; // 稍微宽一点
+                    ctx.strokeStyle = '#fcfcfc'; // 用背景色覆盖墙壁
+                    if (door.direction === 'horizontal') {
+                        ctx.moveTo(door.x, door.y);
+                        ctx.lineTo(door.x + door.width, door.y);
+                    } else {
+                        ctx.moveTo(door.x, door.y);
+                        ctx.lineTo(door.x, door.y + door.width);
+                    }
+                    ctx.stroke();
 
-            // 绘制门 (Door)
-            roomData.layout.doors.forEach(door => {
-                // 门洞部分用背景色填充以显示“缺口”
-                ctx.fillStyle = '#fcfcfc'; // 匹配 canvas 背景色
-                if (door.direction === 'vertical') {
-                    const x = door.x;
-                    ctx.fillRect(x - door.thickness / 2, door.y, door.thickness, door.width);
-                } else {
-                    const y = door.y;
-                    ctx.fillRect(door.x, y - door.thickness / 2, door.width, door.thickness);
-                }
-
-                // 绘制门本身（简化）
-                ctx.fillStyle = '#A0522D';
-                if (door.direction === 'vertical') {
-                    const x = door.x;
-                    ctx.fillRect(x - door.thickness / 2, door.y + door.width / 2 - 5, door.thickness, 10);
-                } else {
-                    const y = door.y;
-                    ctx.fillRect(door.x + door.width / 2 - 5, y - door.thickness / 2, 10, door.thickness);
-                }
-            });
-
-            // 绘制窗户 (Window)
-            roomData.layout.windows.forEach(window => {
-                const lineY = window.y;
-                const halfThickness = window.thickness / 2;
-                
-                ctx.strokeStyle = '#4682B4';
-                ctx.lineWidth = window.thickness;
-                ctx.beginPath();
-                ctx.moveTo(window.x, lineY);
-                ctx.lineTo(window.x + window.width, lineY);
-                ctx.stroke();
-                
-                ctx.strokeStyle = '#ADD8E6';
-                ctx.lineWidth = 1;
-                ctx.beginPath();
-                ctx.moveTo(window.x, lineY - halfThickness * 0.5);
-                ctx.lineTo(window.x + window.width, lineY - halfThickness * 0.5);
-                ctx.moveTo(window.x, lineY + halfThickness * 0.5);
-                ctx.lineTo(window.x + window.width, lineY + halfThickness * 0.5);
-                ctx.stroke();
-            });
+                    // 绘制门扇
+                    ctx.beginPath();
+                    ctx.lineWidth = 4;
+                    ctx.strokeStyle = '#666';
+                    ctx.fillStyle = '#f8f8f8';
+                    if (door.direction === 'horizontal') {
+                        // 绘制一个弧线表示门的打开方向
+                        ctx.arc(door.x, door.y, door.width, Math.PI * 1.5, Math.PI * 0.5);
+                    } else {
+                        ctx.arc(door.x, door.y, door.width, Math.PI, Math.PI * 2);
+                    }
+                    ctx.stroke();
+                });
+            }
+            
+            // 渲染家具 (Furniture) - 仅绘制矩形
+            if (layout && layout.furniture) {
+                layout.furniture.forEach(item => {
+                    ctx.fillStyle = item.color;
+                    ctx.fillRect(item.x, item.y, item.width, item.height);
+                    ctx.strokeStyle = '#333';
+                    ctx.strokeRect(item.x, item.y, item.width, item.height);
+                    
+                    // 标注家具名称 (可选)
+                    ctx.fillStyle = '#333';
+                    ctx.font = '10px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(item.name, item.x + item.width / 2, item.y + item.height / 2 + 3);
+                });
+            }
         }
 
-        // ------------------------------------
-        // 碰撞检测函数 (从 room.html 复制/修改)
-        // ------------------------------------
+        function renderRoles(roles) {
+            // 清除所有现有角色
+            roomElement.querySelectorAll('.role').forEach(r => r.remove());
 
-        function checkAABBCollision(rect1, rect2) {
-            return (
-                rect1.x < rect2.x + rect2.width &&
-                rect1.x + rect1.width > rect2.x &&
-                rect1.y < rect2.y + rect2.height &&
-                rect1.y + rect1.height > rect2.y
-            );
+            roles.forEach(role => {
+                const isUser = role.name === userName;
+                
+                // 找到用户角色并更新其位置，以便于发送聊天
+                if (isUser) {
+                    userPosition.x = role.x;
+                    userPosition.y = role.y;
+                }
+
+                const roleElement = document.createElement('div');
+                roleElement.className = isUser ? 'role role-user' : 'role role-ai';
+                roleElement.dataset.roleName = role.name; // 用于拖拽和信息显示
+
+                // 计算角色左上角位置 (x, y 是中心点)
+                const left = role.x - roleSize / 2;
+                const top = role.y - roleSize / 2;
+
+                roleElement.style.left = left + 'px';
+                roleElement.style.top = top + 'px';
+                roleElement.title = role.name;
+                roleElement.innerHTML = `
+                    ${role.avatar}
+                    <span class="role-activity" style="transform: translateX(-50%); left: 50%;">
+                        ${role.activity || '休息中'}
+                    </span>
+                `;
+
+                // ------------------------------------------
+                // 拖拽逻辑: 仅为 AI 角色添加拖拽监听
+                // ------------------------------------------
+                if (!isUser) {
+                    roleElement.style.cursor = 'grab';
+                    roleElement.addEventListener('mousedown', startDrag);
+                    roleElement.addEventListener('touchstart', startDrag); 
+                }
+                
+                // 点击角色显示信息
+                roleElement.addEventListener('click', (e) => showRoleInfo(e, role));
+
+
+                roomElement.appendChild(roleElement);
+            });
         }
+        
+        // ----------------------------------------------------
+        // IV. 碰撞检测逻辑 (Collision Detection)
+        // ----------------------------------------------------
 
-        function checkCollision(x, y) {
+        function checkCollision(centerX, centerY) {
             if (!roomData || !roomData.layout) return false;
 
-            // 人物矩形 (x, y 为中心点, roleSize=60)
-            const personRect = {
-                x: x - roleSize / 2,
-                y: y - roleSize / 2,
-                width: roleSize,
-                height: roleSize
-            };
+            const layout = roomData.layout;
+            const r = collisionRadius; // 碰撞检测半径
 
-            // 1. 检查墙壁碰撞
-            for (const wall of roomData.layout.walls) {
-                let wallRect;
-                const thickness = wall.thickness;
-
-                if (wall.x1 === wall.x2) { // 垂直墙
-                    const wallX = wall.x1 - thickness / 2;
-                    const wallY = Math.min(wall.y1, wall.y2);
-                    const wallHeight = Math.abs(wall.y1 - wall.y2);
-                    wallRect = { x: wallX, y: wallY, width: thickness, height: wallHeight };
-                } else { // 水平墙
-                    const wallX = Math.min(wall.x1, wall.x2);
-                    const wallY = wall.y1 - thickness / 2;
-                    const wallWidth = Math.abs(wall.x1 - wall.x2);
-                    wallRect = { x: wallX, y: wallY, width: wallWidth, height: thickness };
-                }
-
-                if (checkAABBCollision(personRect, wallRect)) {
-                    // 2. 检查是否穿过门 (修正碰撞逻辑)
-                    let isCollidingWithDoor = false;
-                    // 门洞判定厚度扩大到略大于人物尺寸
-                    const DOOR_TOLERANCE_FOR_CHECK = roleSize; 
-
-                    for (const door of roomData.layout.doors) {
-                        let doorRect;
-                        if (door.direction === 'vertical') {
-                            const doorX = door.x - DOOR_TOLERANCE_FOR_CHECK / 2;
-                            doorRect = { x: doorX, y: door.y, width: DOOR_TOLERANCE_FOR_CHECK, height: door.width };
-                        } else {
-                            const doorY = door.y - DOOR_TOLERANCE_FOR_CHECK / 2;
-                            doorRect = { x: door.x, y: doorY, width: door.width, height: DOOR_TOLERANCE_FOR_CHECK };
-                        }
-                        
-                        // 只需要检查是否位于门的宽度和厚度的**中央**，因为人物中心移动时，只要在门洞内就不算碰撞
-                        if (checkAABBCollision(personRect, doorRect)) {
-                            isCollidingWithDoor = true;
-                            break;
+            // 1. 检查是否碰撞墙壁/家具 (简化版：仅检查中心点是否在物体内部)
+            const objects = (layout.walls || []).concat(layout.furniture || []);
+            
+            for (const obj of objects) {
+                // 对于墙壁 (简化处理：只检查线段附近的点)
+                if (obj.x1 !== undefined && obj.x2 !== undefined) {
+                    // 仅检查中心点与线段的距离是否小于碰撞半径 (复杂，先跳过)
+                    // 简化：如果点非常接近墙壁，则认为碰撞（不精确，但比没有好）
+                    // 对于垂直墙: x1 == x2. 检查 centerX 是否在 x1 附近
+                    if (obj.x1 === obj.x2 && Math.abs(centerX - obj.x1) < r) {
+                        if (centerY >= Math.min(obj.y1, obj.y2) && centerY <= Math.max(obj.y1, obj.y2)) {
+                             return true;
                         }
                     }
-                    
-                    if (!isCollidingWithDoor) {
-                        return true; // 撞墙且没撞到门，判定为碰撞
+                    // 对于水平墙: y1 == y2. 检查 centerY 是否在 y1 附近
+                    if (obj.y1 === obj.y2 && Math.abs(centerY - obj.y1) < r) {
+                        if (centerX >= Math.min(obj.x1, obj.x2) && centerX <= Math.max(obj.x1, obj.x2)) {
+                            return true;
+                        }
+                    }
+
+                } 
+                // 对于家具 (Area, Box)
+                else if (obj.x !== undefined && obj.width !== undefined) {
+                    // 检查中心点是否在家具/区域内部 (Area/Furniture)
+                    if (centerX >= obj.x && centerX <= obj.x + obj.width &&
+                        centerY >= obj.y && centerY <= obj.y + obj.height) {
+                        return true;
                     }
                 }
             }
 
-            // 3. 检查家具碰撞 
-            for (const item of roomData.layout.furniture) {
-                const furnitureRect = { x: item.x, y: item.y, width: item.width, height: item.height };
-                if (checkAABBCollision(personRect, furnitureRect)) {
+            // 2. 检查是否碰撞其他角色 (也仅检查中心点距离)
+            // 每次拖拽只检查与其他角色的碰撞
+            const currentRoles = Array.from(roomElement.querySelectorAll('.role'));
+            for (const roleEl of currentRoles) {
+                const roleName = roleEl.dataset.roleName;
+                // 跳过正在拖拽的角色
+                if (draggedRole && roleName === draggedRole.dataset.roleName) continue; 
+                
+                const role = roomData.roles.find(r => r.name === roleName);
+                if (!role) continue;
+                
+                const distanceX = centerX - role.x;
+                const distanceY = centerY - role.y;
+                const distance = Math.sqrt(distanceX * distanceX + distanceY * distanceY);
+                
+                // 如果两个角色中心点距离小于角色尺寸 (60px) 则认为碰撞
+                if (distance < roleSize) {
                     return true;
                 }
             }
-            
-            // 4. 边界碰撞 (50, 50) - (750, 550) 假设是外墙的中心线
-            const personHalfSize = roleSize / 2;
-            if (x < 50 + personHalfSize || x > 750 - personHalfSize || y < 50 + personHalfSize || y > 550 - personHalfSize) {
-                return true;
-            }
-            
+
+
             return false;
         }
 
-        // ------------------------------------
-        // 键盘持续移动逻辑 (gameLoop)
-        // ------------------------------------
-        const DEBOUNCE_DELAY = 100;
-        let debounceTimer;
+
+        // ----------------------------------------------------
+        // V. AI 角色拖拽逻辑 (新增)
+        // ----------------------------------------------------
+
+        function startDrag(e) {
+            // 阻止点击事件向上冒泡到 room 的 click 事件
+            e.stopPropagation(); 
+            
+            // 阻止浏览器默认拖拽行为
+            if (e.type === 'mousedown') e.preventDefault(); 
+            
+            isDragging = true;
+            draggedRole = this; // 'this' 指向 roleElement
+            
+            const rect = draggedRole.getBoundingClientRect();
+            const clientX = e.type.startsWith('touch') ? e.touches[0].clientX : e.clientX;
+            const clientY = e.type.startsWith('touch') ? e.touches[0].clientY : e.clientY;
+            
+            offsetX = clientX - rect.left;
+            offsetY = clientY - rect.top;
+            
+            draggedRole.style.cursor = 'grabbing';
+            draggedRole.classList.add('role-selected');
+            
+            // 注册全局事件
+            document.addEventListener('mousemove', drag);
+            document.addEventListener('mouseup', endDrag);
+            document.addEventListener('touchmove', drag);
+            document.addEventListener('touchend', endDrag);
+            
+            // 隐藏信息浮窗防止干扰
+            document.getElementById("roleInfo").style.display = "none";
+        }
+
+        function drag(e) {
+            if (!isDragging) return;
+            
+            const clientX = e.type.startsWith('touch') ? e.touches[0].clientX : e.clientX;
+            const clientY = e.type.startsWith('touch') ? e.touches[0].clientY : e.clientY;
+
+            const roomRect = document.getElementById("room").getBoundingClientRect();
+            
+            let newX = clientX - roomRect.left - offsetX;
+            let newY = clientY - roomRect.top - offsetY;
+
+            // 计算中心点坐标
+            const centerX = newX + roleSize / 2;
+            const centerY = newY + roleSize / 2;
+            
+            // 边界检查 (确保中心点在房间内)
+            const boundedX = Math.max(roleSize / 2, Math.min(centerX, roomDimensions.width - roleSize / 2));
+            const boundedY = Math.max(roleSize / 2, Math.min(centerY, roomDimensions.height - roleSize / 2));
+            
+            // 碰撞检查 (使用 center X/Y)
+            if (checkCollision(boundedX, boundedY)) {
+                // 如果碰撞，不移动，保持在原地
+                return; 
+            }
+
+            // 转换回左上角坐标
+            const finalX = boundedX - roleSize / 2;
+            const finalY = boundedY - roleSize / 2;
+
+            draggedRole.style.left = finalX + 'px';
+            draggedRole.style.top = finalY + 'px';
+        }
+
+        function endDrag(e) {
+            if (!isDragging) return;
+            
+            isDragging = false;
+            draggedRole.style.cursor = 'grab';
+            draggedRole.classList.remove('role-selected');
+
+            document.removeEventListener('mousemove', drag);
+            document.removeEventListener('mouseup', endDrag);
+            document.removeEventListener('touchmove', drag);
+            document.removeEventListener('touchend', endDrag);
+            
+            // 获得最终位置 (左上角)
+            const finalLeft = parseFloat(draggedRole.style.left);
+            const finalTop = parseFloat(draggedRole.style.top);
+
+            // 转换为中心点坐标
+            const finalCenterX = Math.round(finalLeft + roleSize / 2);
+            const finalCenterY = Math.round(finalTop + roleSize / 2);
+            
+            const roleName = draggedRole.dataset.roleName;
+
+            // 3. 发送 Socket.IO 事件到服务器
+            socket.emit('update_role_position', {
+                room_name: 'main',
+                role_name: roleName,
+                x: finalCenterX,
+                y: finalCenterY
+            });
+            
+            logMessage("System", `角色 ${roleName} 移动到 (${finalCenterX}, ${finalCenterY}).`, getTime(), "log-system");
+            
+            // 清理
+            draggedRole = null;
+        }
+
+        // ----------------------------------------------------
+        // VI. 用户交互事件监听
+        // ----------------------------------------------------
+
+        // 1. 用户名输入
+        document.getElementById("userNameInput").addEventListener("change", function () {
+            userName = this.value;
+            // 重新发送用户位置以更新服务器上的角色名
+            if (userPosition.x) {
+                addUserToRoom();
+            }
+        });
+
+        // 2. 保存用户位置
+        document.getElementById("saveUserBtn").addEventListener("click", function () {
+            addUserToRoom();
+            updateUserButtons(false); // 保存后禁用按钮直到位置再次改变
+        });
         
-        // 监听 WASD 键
-        const keys = {};
-        document.addEventListener('keydown', (e) => { keys[e.key.toUpperCase()] = true; });
-        document.addEventListener('keyup', (e) => { keys[e.key.toUpperCase()] = false; });
-
-        function gameLoop() {
-            const userRoleElementContainer = document.querySelector('.role.user').parentElement;
-            if (!userRoleElementContainer || !userPosition) {
-                requestAnimationFrame(gameLoop);
-                return;
-            }
-
-            let nextX = userPosition.x;
-            let nextY = userPosition.y;
-            let moved = false;
-
-            if (keys['W']) { nextY -= MOVE_SPEED; moved = true; }
-            if (keys['S']) { nextY += MOVE_SPEED; moved = true; }
-            if (keys['A']) { nextX -= MOVE_SPEED; moved = true; }
-            if (keys['D']) { nextX += MOVE_SPEED; moved = true; }
-
-            if (moved) {
-                const targetX = nextX;
-                const targetY = nextY;
-                let finalX = userPosition.x;
-                let finalY = userPosition.y;
-
-                // 尝试独立移动 X 轴和 Y 轴，处理斜向碰撞
-                if (!checkCollision(targetX, userPosition.y)) { finalX = targetX; }
-                if (!checkCollision(userPosition.x, targetY)) { finalY = targetY; }
-
-                if (finalX !== userPosition.x || finalY !== userPosition.y) {
-                    userPosition.x = finalX;
-                    userPosition.y = finalY;
-                    
-                    // 更新 HTML DIV 位置 (中心点坐标转为左上角坐标: -30)
-                    userRoleElementContainer.style.left = (finalX - 30) + 'px';
-                    userRoleElementContainer.style.top = (finalY - 30) + 'px';
-                    
-                    document.getElementById("userPosition").innerText = 
-                        `(${Math.round(finalX)}, ${Math.round(finalY)}) 已设置`;
-                        
-                    // 防抖更新位置到服务器
-                    debounceUpdateRolePosition("user", Math.round(finalX), Math.round(finalY)); 
-                }
-            }
-
-            requestAnimationFrame(gameLoop);
-        }
-        gameLoop(); // 启动游戏循环
-
-
-        // ------------------------------------
-        // 基础功能函数 (保持原有功能，部分修改)
-        // ------------------------------------
-        
-        function updateUserButtons(enabled) {
-            document.getElementById("updatePositionButton").disabled = !enabled;
-            document.getElementById("removeUserButton").disabled = !enabled;
-            document.getElementById("addRoleButton").disabled = !enabled;
+        function addUserToRoom() {
+            // 始终使用用户名称输入框中的值
+            const name = document.getElementById("userNameInput").value; 
+            
+            socket.emit('update_user_position', {
+                room_name: 'main',
+                role_name: name,
+                x: userPosition.x,
+                y: userPosition.y,
+                avatar: '👤'
+            });
+            logMessage("System", `用户 ${name} 位置已保存到 (${userPosition.x}, ${userPosition.y}).`, getTime(), "log-system");
         }
 
-        function appendMessage(role, message) {
-            const log = document.getElementById('chatLog');
-            const msgDiv = document.createElement('div');
-            const roleClass = role === 'user' ? 'user-message' : 'ai-message';
-            msgDiv.className = `message ${roleClass}`;
-            msgDiv.innerHTML = `<strong>${role}:</strong> ${message}`;
-            log.appendChild(msgDiv);
-            log.scrollTop = log.scrollHeight;
-        }
+        // 3. 添加新角色 (更新: 使用用户位置作为默认位置)
+        document.getElementById("addRoleBtn").addEventListener("click", function () {
+            const roleName = document.getElementById("newRoleName").value;
+            if (roleName) {
+                // 使用用户设置的位置作为 AI 的起始位置
+                const startX = userPosition.x || 100;
+                const startY = userPosition.y || 100;
 
-        function showRoleInfo(element) {
-            const infoBox = document.getElementById("roleInfo");
-            const roleName = element.dataset.roleName;
-            const activity = element.dataset.activity || "空闲中";
-            const position = element.parentElement.style;
-
-            infoBox.innerHTML = `<strong>${roleName}</strong><br>活动: ${activity}`;
-            infoBox.style.left = (parseInt(position.left) + roleSize + 10) + 'px';
-            infoBox.style.top = position.top;
-            infoBox.style.display = "block";
-            infoBox.dataset.roleName = roleName;
-        }
-
-        function makeDraggable(element, role) {
-            let isDragging = false;
-            let startX, startY, startLeft, startTop;
-
-            element.addEventListener('mousedown', startDrag);
-            element.addEventListener('touchstart', startDrag, { passive: false });
-
-            function startDrag(e) {
-                e.preventDefault();
-                if (e.type === 'mousedown' && e.button !== 0) return; 
-
-                const clientX = e.type === 'mousedown' ? e.clientX : e.touches[0].clientX;
-                const clientY = e.type === 'mousedown' ? e.clientY : e.touches[0].clientY;
-                startX = clientX;
-                startY = clientY;
-                startLeft = parseInt(element.style.left) || 0;
-                startTop = parseInt(element.style.top) || 0;
-
-                document.addEventListener('mousemove', drag);
-                document.addEventListener('mouseup', stopDrag);
-                document.addEventListener('touchmove', drag, { passive: false });
-                document.addEventListener('touchend', stopDrag);
-
-                element.style.zIndex = '1000';
-                element.style.cursor = 'grabbing';
-                isDragging = false; 
-            }
-
-            function drag(e) {
-                e.preventDefault();
-                const clientX = e.type === 'mousemove' ? e.clientX : e.touches[0].clientX;
-                const clientY = e.type === 'mousemove' ? e.clientY : e.touches[0].clientY;
-                
-                const dx = clientX - startX;
-                const dy = clientY - startY;
-
-                if (!isDragging && (Math.abs(dx) < 3 && Math.abs(dy) < 3)) { return; }
-                isDragging = true; 
-
-                document.getElementById("roleInfo").style.display = "none";
-
-                let newLeft = startLeft + dx;
-                let newTop = startTop + dy;
-                
-                const newCenterX = Math.round(newLeft + roleSize / 2);
-                const newCenterY = Math.round(newTop + roleSize / 2);
-                
-                // ❌ 碰撞检测
-                if (roomData && checkCollision(newCenterX, newCenterY)) {
-                    // 如果发生碰撞，则不更新位置
+                if (checkCollision(startX, startY)) {
+                    alert(`无法在 (${startX}, ${startY}) 添加角色，请选择空闲位置。`);
                     return;
                 }
 
-                // 边界检查 (使用 left/top 坐标)
-                newLeft = Math.max(0, Math.min(newLeft, roomDimensions.width - roleSize));
-                newTop = Math.max(0, Math.min(newTop, roomDimensions.height - roleSize)); 
-
-                // 更新位置
-                element.style.left = newLeft + 'px';
-                element.style.top = newTop + 'px';
-
-                if (role.name.toLowerCase() === "user") {
-                    userPosition = { x: Math.round(newLeft + roleSize / 2), y: Math.round(newTop + roleSize / 2) };
-                    document.getElementById("userPosition").innerText = 
-                        `(${userPosition.x}, ${userPosition.y})`;
-                }
-            }
-
-            function stopDrag(e) {
-                e.preventDefault();
-                // 移除事件监听器
-                document.removeEventListener('mousemove', drag);
-                document.removeEventListener('mouseup', stopDrag);
-                document.removeEventListener('touchmove', drag);
-                document.removeEventListener('touchend', stopDrag);
-
-                element.style.cursor = 'move';
-                element.style.zIndex = '10';
-
-                if (isDragging) {
-                    const currentLeft = parseInt(element.style.left);
-                    const currentTop = parseInt(element.style.top);
-                    debounceUpdateRolePosition(role.name, Math.round(currentLeft + roleSize / 2), Math.round(currentTop + roleSize / 2));
-                }
-                isDragging = false;
-            }
-        }
-        
-        function createRoleElement(role) {
-            const roleDivContainer = document.createElement('div');
-            roleDivContainer.className = 'role-container';
-            roleDivContainer.style.position = 'absolute';
-            // 将中心坐标转换为左上角坐标 (中心点 - 30)
-            roleDivContainer.style.left = (role.x - roleSize / 2) + 'px';
-            roleDivContainer.style.top = (role.y - roleSize / 2) + 'px';
-
-            const roleDiv = document.createElement('div');
-            roleDiv.className = `role ${role.type} ${role.name.toLowerCase()}`;
-            roleDiv.dataset.roleName = role.name;
-            roleDiv.dataset.activity = role.activity || '空闲中'; // 初始活动状态
-            roleDiv.innerHTML = role.avatar || '❓';
-            
-            // 添加点击事件显示信息
-            roleDiv.addEventListener('click', (e) => {
-                e.stopPropagation();
-                showRoleInfo(roleDiv);
-            });
-
-            roleDivContainer.appendChild(roleDiv);
-            
-            return { container: roleDivContainer, element: roleDiv };
-        }
-
-        function addRoleToRoom(role) {
-            const existingContainer = document.querySelector(`.role[data-role-name="${role.name}"]`)?.parentElement;
-            
-            if (existingContainer) {
-                // 如果已存在，仅更新位置和信息
-                existingContainer.style.left = (role.x - roleSize / 2) + 'px';
-                existingContainer.style.top = (role.y - roleSize / 2) + 'px';
-                existingContainer.querySelector('.role').dataset.activity = role.activity || '空闲中';
-            } else {
-                // 如果不存在，创建新角色
-                const { container, element } = createRoleElement(role);
-                document.getElementById("room").appendChild(container);
-                makeDraggable(container, role);
-            }
-        }
-        
-        function updateUserRoleDisplay(role) {
-             const existingContainer = document.querySelector(`.role.user`)?.parentElement;
-             
-             if (existingContainer) {
-                existingContainer.style.left = (role.x - roleSize / 2) + 'px';
-                existingContainer.style.top = (role.y - roleSize / 2) + 'px';
-             } else {
-                 addUserToRoom();
-             }
-        }
-
-        function addUserToRoom() {
-            if (!userPosition) return;
-            const existing = document.querySelector('.role.user');
-            
-            // 确保只有一个用户角色
-            if (existing) {
-                const container = existing.parentElement;
-                container.style.left = (userPosition.x - roleSize / 2) + 'px';
-                container.style.top = (userPosition.y - roleSize / 2) + 'px';
-                return;
-            }
-
-            const role = { name: "user", type: "person", x: userPosition.x, y: userPosition.y, avatar: "👤" };
-            const { container, element } = createRoleElement(role);
-            document.getElementById("room").appendChild(container);
-            makeDraggable(container, role);
-        }
-        
-        function debounceUpdateRolePosition(role_name, x, y) {
-            clearTimeout(debounceTimer);
-            debounceTimer = setTimeout(() => {
-                updateRolePosition(role_name, x, y);
-            }, DEBOUNCE_DELAY);
-        }
-        
-        // ------------------------------------
-        // API 调用函数
-        // ------------------------------------
-        
-        async function loadRoom() {
-            currentRoomName = document.getElementById("roomName").value || "main";
-            try {
-                const response = await fetch(`/api/room/${currentRoomName}`);
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                const data = await response.json();
-                
-                // ❌ 更新全局 roomData 并绘制地图
-                roomData = data; 
-                drawRoomMap(); 
-
-                // 更新 roomDimensions 并设置容器大小
-                roomDimensions = { width: data.width, height: data.height };
-                document.getElementById("room").style.width = roomDimensions.width + 'px';
-                document.getElementById("room").style.height = roomDimensions.height + 'px';
-                canvas.width = roomDimensions.width;
-                canvas.height = roomDimensions.height;
-                document.getElementById("room-container").style.width = roomDimensions.width + 'px';
-                document.getElementById("room-container").style.height = roomDimensions.height + 'px';
-
-                // 清空并重新渲染角色
-                const roomDiv = document.getElementById("room");
-                roomDiv.innerHTML = ""; // 清空所有角色
-                data.roles.forEach(role => {
-                    if (role.name.toLowerCase() === 'user') {
-                        // 初始化 userPosition 和 HTML DIV for 'user'
-                        userPosition = { x: role.x, y: role.y };
-                        document.getElementById("userPosition").innerText = 
-                            `(${userPosition.x}, ${userPosition.y}) 已设置`;
-                        updateUserButtons(true);
-                        addUserToRoom(); // 重新添加用户角色 DIV
-                    } else {
-                        addRoleToRoom(role);
-                    }
+                socket.emit('add_role', {
+                    room_name: 'main',
+                    role_name: roleName,
+                    x: startX, // <-- 使用用户设置的位置
+                    y: startY, // <-- 使用用户设置的位置
+                    avatar: '🤖'
                 });
-                
-                document.getElementById("roleInfo").style.display = "none";
-            } catch (error) {
-                console.error("加载房间失败:", error);
-                alert(`加载房间 ${currentRoomName} 失败。请确保服务器运行正常。`);
+                logMessage("System", `正在添加角色 ${roleName} 到 (${startX}, ${startY})...`, getTime(), "log-system");
+            } else {
+                alert("请输入新角色的名称。");
             }
-        }
+        });
 
+        // 4. 清空房间
+        document.getElementById("clearRoomBtn").addEventListener("click", function () {
+            if (confirm("确定要清空所有 AI 角色吗？（用户角色会被保留）")) {
+                socket.emit('clear_room', { room_name: 'main' });
+                logMessage("System", "所有 AI 角色已清除。", getTime(), "log-system");
+            }
+        });
 
-        async function clearRoom() {
-            if (!confirm(`确定要清空房间 ${currentRoomName} 的所有角色吗？这会移除所有 AI 角色和用户角色。`)) {
-                return;
-            }
-            try {
-                const response = await fetch(`/api/room/${currentRoomName}/clear`, { method: 'POST' });
-                if (response.ok) {
-                    alert('房间已清空！');
-                    userPosition = null;
-                    updateUserButtons(false);
-                    loadRoom(); // 重新加载空房间
-                } else {
-                    alert('清空房间失败。');
-                }
-            } catch (error) {
-                console.error("清空房间失败:", error);
-            }
-        }
-        
-        function addRole() {
-            const roleName = prompt("请输入新 AI 角色名称 (例如: 妻子, 儿子, 智能管家):");
-            if (roleName) {
-                // 默认位置设置在用户位置附近 (中心点 - 30)
-                const x = userPosition ? userPosition.x + 80 : 100;
-                const y = userPosition ? userPosition.y : 100;
-                
-                fetch(`/api/room/${currentRoomName}/role`, {
+        // 5. 聊天发送
+        document.getElementById("sendChatBtn").addEventListener("click", function () {
+            sendMessage();
+        });
+
+        function sendMessage() {
+            const chatInput = document.getElementById("chatMessage");
+            const message = chatInput.value.trim();
+            if (message && userPosition.x && userPosition.y) {
+                // 发送 HTTP 请求到 FastAPI 路由
+                fetch(`/distance_chat/main`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name: roleName, x: x, y: y, avatar: "🤖" })
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        sender: userName,
+                        message: message,
+                        x: userPosition.x,
+                        y: userPosition.y
+                    })
                 })
-                .then(response => {
-                    if (response.ok) {
-                        return response.json();
-                    }
-                    throw new Error('新增角色失败');
-                })
+                .then(response => response.json())
                 .then(data => {
-                    console.log('新增角色成功:', data);
-                    // SocketIO 会触发 room_update
+                    if (data.status !== 'success') {
+                        logMessage("System", `发送消息失败: ${data.detail}`, getTime(), "log-system");
+                    }
+                    // 实际的消息广播由服务器端的 socket.emit('chat_message') 处理
                 })
                 .catch(error => {
-                    alert('新增角色失败: ' + error.message);
-                });
-            }
-        }
-
-        function updateRolePosition(role_name, x = userPosition.x, y = userPosition.y) {
-            const targetX = Math.round(x);
-            const targetY = Math.round(y);
-            
-            fetch(`/api/room/${currentRoomName}/role/${role_name}/position`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ x: targetX, y: targetY })
-            })
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error('更新位置失败');
-                }
-            })
-            .catch(error => {
-                console.error("更新位置失败:", error);
-            });
-        }
-
-        function removeRole(role_name) {
-            if (!confirm(`确定要移除角色 ${role_name} 吗？`)) {
-                return;
-            }
-            fetch(`/api/room/${currentRoomName}/role/${role_name}`, {
-                method: 'DELETE'
-            })
-            .then(response => {
-                if (response.ok) {
-                    alert(`角色 ${role_name} 已移除！`);
-                    if (role_name.toLowerCase() === 'user') {
-                        userPosition = null;
-                        updateUserButtons(false);
-                        document.getElementById("userPosition").innerText = "(N/A)";
-                    }
-                    loadRoom(); // 重新加载房间以更新列表
-                } else {
-                    alert('移除角色失败。');
-                }
-            })
-            .catch(error => {
-                console.error("移除角色失败:", error);
-            });
-        }
-        
-        async function sendMessage() {
-            const messageInput = document.getElementById("chatMessage");
-            const message = messageInput.value.trim();
-            if (!message) return;
-
-            // 获取当前房间中的第一个 AI 角色作为对话目标
-            const aiRoleElement = document.querySelector('.role.ai');
-            if (!aiRoleElement) {
-                alert("房间中没有 AI 角色，无法发送消息。");
-                return;
-            }
-            const aiRoleName = aiRoleElement.dataset.roleName;
-
-            appendMessage('user', message);
-            messageInput.value = '';
-            
-            try {
-                const response = await fetch(`/api/chat/${aiRoleName}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ user_input: message, role_name: aiRoleName })
+                    console.error('Error sending chat:', error);
+                    logMessage("System", "发送消息时发生网络错误。", getTime(), "log-system");
                 });
                 
-                if (!response.ok) {
-                    throw new Error(`API error! status: ${response.status}`);
-                }
-
-                // AI 回复通过 SocketIO 的 chat_message 事件接收
-                console.log("消息发送成功，等待 AI 回复...");
-
-            } catch (error) {
-                console.error("发送消息失败:", error);
-                appendMessage('系统', `向 ${aiRoleName} 发送消息失败: ${error.message}`);
+                chatInput.value = ''; // 清空输入框
+            } else if (!userPosition.x) {
+                alert("请先设置您的位置。");
             }
         }
         
-        async function toggleTimeAcceleration() {
-            try {
-                const response = await fetch('/api/time/toggle', { method: 'POST' });
-                const data = await response.json();
-                alert(data.message);
-                // SocketIO 会更新时间显示
-            } catch (error) {
-                console.error("时间控制失败:", error);
-            }
-        }
-
-
-        // ------------------------------------
-        // 事件监听器 (整合碰撞检测)
-        // ------------------------------------
-        
-        // ❌ 修改房间点击事件: 添加碰撞检测
+        // 6. 房间点击设置用户位置
         document.getElementById("room").addEventListener("click", function (e) {
             // 避免点击到角色时触发
             if (e.target.closest('.role')) {
@@ -964,11 +768,15 @@
             const x = e.clientX - roomRect.left;
             const y = e.clientY - roomRect.top;
 
+            // 计算中心点坐标
+            const centerX = x;
+            const centerY = y;
+
             // 边界检查 (使用中心点坐标)
-            const boundedX = Math.max(roleSize / 2, Math.min(x, roomDimensions.width - roleSize / 2));
-            const boundedY = Math.max(roleSize / 2, Math.min(y, roomDimensions.height - roleSize / 2));
+            const boundedX = Math.max(roleSize / 2, Math.min(centerX, roomDimensions.width - roleSize / 2));
+            const boundedY = Math.max(roleSize / 2, Math.min(centerY, roomDimensions.height - roleSize / 2));
             
-            // ❌ 碰撞检测
+            // 碰撞检测
             if (checkCollision(boundedX, boundedY)) {
                 console.log("点击位置有碰撞，无法设置用户位置。");
                 alert("无法将人物放置在墙壁或家具内部！");
@@ -986,19 +794,79 @@
             addUserToRoom();
         });
 
-        // 点击其他地方隐藏角色信息
+        // 7. 点击其他地方隐藏角色信息
         document.addEventListener("click", (e) => {
             if (!e.target.closest("#roleInfo") && !e.target.closest(".role")) {
                 document.getElementById("roleInfo").style.display = "none";
             }
         });
 
-        // 回车发送消息
+        // 8. 回车发送消息
         document.getElementById("chatMessage").addEventListener("keypress", function (e) {
-            if (e.key === "Enter") {
-                sendMessage();
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                document.getElementById("sendChatBtn").click();
             }
         });
+
+        // 9. 启动/停止时间
+        document.getElementById("startTimeBtn").addEventListener("click", function () {
+            const acceleration = parseInt(document.getElementById("timeAcceleration").value);
+            socket.emit('start_time', { acceleration: acceleration });
+            document.getElementById("startTimeBtn").disabled = true;
+            document.getElementById("stopTimeBtn").disabled = false;
+        });
+
+        // 停止时间
+        document.getElementById("stopTimeBtn").addEventListener("click", function () {
+            socket.emit('stop_time');
+            document.getElementById("startTimeBtn").disabled = false;
+            document.getElementById("stopTimeBtn").disabled = true;
+        });
+
+        // ----------------------------------------------------
+        // VII. 工具函数
+        // ----------------------------------------------------
+
+        function getTime() {
+             return document.getElementById("currentTime").innerText.split(' ')[1] || '00:00:00';
+        }
+
+        function logMessage(sender, message, time, cssClass) {
+            const timeSpan = `<span class="log-time">(${time})</span>`;
+            const senderSpan = `<span class="${cssClass}">${sender}</span>: `
+            const messageHtml = `<p>${timeSpan} ${senderSpan} ${message}</p>`;
+            
+            chatLog.innerHTML += messageHtml;
+            chatLog.scrollTop = chatLog.scrollHeight; // 滚动到底部
+        }
+        
+        function updateUserButtons(enabled) {
+            document.getElementById("saveUserBtn").disabled = !enabled;
+            document.getElementById("sendChatBtn").disabled = !enabled;
+        }
+
+        function showRoleInfo(e, role) {
+            e.stopPropagation(); // 阻止事件冒泡到 room 的 click 事件
+
+            const infoBox = document.getElementById("roleInfo");
+            const roomRect = document.getElementById("room").getBoundingClientRect();
+            
+            // 计算相对于房间容器的位置
+            const x = role.x; 
+            const y = role.y; 
+            
+            // 设置浮窗内容
+            document.getElementById("infoRoleName").innerText = role.name;
+            document.getElementById("infoPosition").innerText = `(${role.x}, ${role.y})`;
+            document.getElementById("infoActivity").innerText = role.activity || '休息中';
+            
+            // 设置浮窗位置 (在角色右下方)
+            infoBox.style.left = (x + roleSize / 2 + 10) + 'px';
+            infoBox.style.top = (y - infoBox.offsetHeight / 2) + 'px'; // 垂直居中于角色
+            infoBox.style.display = "block";
+        }
+        
     </script>
 </body>
 

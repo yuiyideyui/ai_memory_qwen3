@@ -7,50 +7,314 @@
     {
       "name": "user",
       "type": "person",
-      "x": 100,
-      "y": 100,
+      "x": 300,
+      "y": 255,
+      "size": 20,
+      "avatar": "👤"
+    },
+    {
+      "name": "yui",
+      "type": "person",
+      "x": 331,
+      "y": 477,
+      "size": 20,
+      "avatar": "👤"
+    },
+    {
+      "name": "yui2",
+      "type": "person",
+      "x": 243,
+      "y": 274,
       "size": 20,
       "avatar": "👤"
     }
   ],
   "layout": {
     "areas": [
-      { "id": "A1", "name": "客厅", "x": 50, "y": 50, "width": 450, "height": 300, "color": "#F0FFF0" },
-      { "id": "A2", "name": "卧室", "x": 50, "y": 350, "width": 450, "height": 200, "color": "#F5FFFA" },
-      { "id": "A3", "name": "厨房", "x": 500, "y": 50, "width": 250, "height": 200, "color": "#FFF5EE" },
-      { "id": "A4", "name": "卫生间", "x": 500, "y": 250, "width": 250, "height": 300, "color": "#F0FFFF" }
+      {
+        "id": "A1",
+        "name": "客厅",
+        "x": 50,
+        "y": 50,
+        "width": 450,
+        "height": 300,
+        "color": "#F0FFF0"
+      },
+      {
+        "id": "A2",
+        "name": "卧室",
+        "x": 50,
+        "y": 350,
+        "width": 450,
+        "height": 200,
+        "color": "#F5FFFA"
+      },
+      {
+        "id": "A3",
+        "name": "厨房",
+        "x": 500,
+        "y": 50,
+        "width": 250,
+        "height": 200,
+        "color": "#FFF5EE"
+      },
+      {
+        "id": "A4",
+        "name": "卫生间",
+        "x": 500,
+        "y": 250,
+        "width": 250,
+        "height": 300,
+        "color": "#F0FFFF"
+      }
     ],
     "walls": [
-      { "id": 1, "x1": 50, "y1": 50, "x2": 750, "y2": 50, "thickness": 10, "isOuter": true },
-      { "id": 2, "x1": 750, "y1": 50, "x2": 750, "y2": 550, "thickness": 10, "isOuter": true },
-      { "id": 3, "x1": 750, "y1": 550, "x2": 50, "y2": 550, "thickness": 10, "isOuter": true },
-      { "id": 4, "x1": 50, "y1": 550, "x2": 50, "y2": 50, "thickness": 10, "isOuter": true },
-      { "id": 5, "x1": 50, "y1": 350, "x2": 500, "y2": 350, "thickness": 5 },
-      { "id": 6, "x1": 500, "y1": 50, "x2": 500, "y2": 550, "thickness": 5 },
-      { "id": 7, "x1": 500, "y1": 250, "x2": 750, "y2": 250, "thickness": 5 }
+      {
+        "id": 1,
+        "x1": 50,
+        "y1": 50,
+        "x2": 750,
+        "y2": 50,
+        "thickness": 10,
+        "isOuter": true
+      },
+      {
+        "id": 2,
+        "x1": 750,
+        "y1": 50,
+        "x2": 750,
+        "y2": 550,
+        "thickness": 10,
+        "isOuter": true
+      },
+      {
+        "id": 3,
+        "x1": 750,
+        "y1": 550,
+        "x2": 50,
+        "y2": 550,
+        "thickness": 10,
+        "isOuter": true
+      },
+      {
+        "id": 4,
+        "x1": 50,
+        "y1": 550,
+        "x2": 50,
+        "y2": 50,
+        "thickness": 10,
+        "isOuter": true
+      },
+      {
+        "id": 5,
+        "x1": 50,
+        "y1": 350,
+        "x2": 500,
+        "y2": 350,
+        "thickness": 5,
+        "isOuter": false
+      },
+      {
+        "id": 6,
+        "x1": 500,
+        "y1": 50,
+        "x2": 500,
+        "y2": 550,
+        "thickness": 5,
+        "isOuter": false
+      },
+      {
+        "id": 7,
+        "x1": 500,
+        "y1": 250,
+        "x2": 750,
+        "y2": 250,
+        "thickness": 5,
+        "isOuter": false
+      }
     ],
     "doors": [
-      { "id": 101, "name": "入户门", "x": 50, "y": 150, "width": 60, "thickness": 10, "direction": "vertical", "area": "A1" },
-      { "id": 102, "name": "卧室门", "x": 285, "y": 350, "width": 60, "thickness": 5, "direction": "horizontal", "area": "A2" }, 
-      { "id": 103, "name": "厨房门", "x": 500, "y": 150, "width": 60, "thickness": 5, "direction": "vertical", "area": "A3" },
-      { "id": 104, "name": "卫生间门", "x": 500, "y": 400, "width": 60, "thickness": 5, "direction": "vertical", "area": "A4" }
+      {
+        "id": 101,
+        "name": "入户门",
+        "x": 50,
+        "y": 150,
+        "width": 60,
+        "thickness": 10,
+        "direction": "vertical",
+        "area": "A1"
+      },
+      {
+        "id": 102,
+        "name": "卧室门",
+        "x": 285,
+        "y": 350,
+        "width": 60,
+        "thickness": 5,
+        "direction": "horizontal",
+        "area": "A2"
+      },
+      {
+        "id": 103,
+        "name": "厨房门",
+        "x": 500,
+        "y": 150,
+        "width": 60,
+        "thickness": 5,
+        "direction": "vertical",
+        "area": "A3"
+      },
+      {
+        "id": 104,
+        "name": "卫生间门",
+        "x": 500,
+        "y": 400,
+        "width": 60,
+        "thickness": 5,
+        "direction": "vertical",
+        "area": "A4"
+      }
     ],
     "windows": [
-      { "id": 201, "x": 150, "y": 50, "width": 150, "thickness": 10, "direction": "horizontal" },
-      { "id": 202, "x": 150, "y": 550, "width": 150, "thickness": 10, "direction": "horizontal" }
+      {
+        "id": 201,
+        "x": 150,
+        "y": 50,
+        "width": 150,
+        "thickness": 10,
+        "direction": "horizontal"
+      },
+      {
+        "id": 202,
+        "x": 150,
+        "y": 550,
+        "width": 150,
+        "thickness": 10,
+        "direction": "horizontal"
+      }
     ],
     "furniture": [
-      { "id": 301, "name": "沙发", "type": "sofa", "x": 100, "y": 280, "width": 200, "height": 50, "color": "#A9A9A9" },
-      { "id": 302, "name": "茶几", "type": "table", "x": 160, "y": 250, "width": 80, "height": 40, "color": "#CD853F" }, 
-      { "id": 303, "name": "电视柜", "type": "cabinet", "x": 350, "y": 60, "width": 150, "height": 30, "color": "#A0522D" },
-      { "id": 401, "name": "双人床", "type": "bed", "x": 150, "y": 400, "width": 180, "height": 120, "color": "#708090" },
-      { "id": 402, "name": "衣柜", "type": "closet", "x": 55, "y": 400, "width": 50, "height": 100, "color": "#A0522D" },
-      { "id": 501, "name": "操作台", "type": "counter", "x": 510, "y": 60, "width": 230, "height": 40, "color": "#BDB76B" },
-      { "id": 502, "name": "冰箱", "type": "fridge", "x": 510, "y": 100, "width": 40, "height": 40, "color": "#DCDCDC" },
-      { "id": 503, "name": "餐桌", "type": "table", "x": 600, "y": 150, "width": 100, "height": 80, "color": "#CD853F" },
-      { "id": 601, "name": "马桶", "type": "toilet", "x": 530, "y": 280, "width": 40, "height": 40, "color": "#F0F8FF" },
-      { "id": 602, "name": "洗手池", "type": "sink", "x": 600, "y": 280, "width": 80, "height": 40, "color": "#F0F8FF" },
-      { "id": 603, "name": "淋浴区", "type": "shower", "x": 520, "y": 450, "width": 100, "height": 80, "color": "#ADD8E6" }
+      {
+        "id": 301,
+        "name": "沙发",
+        "type": "sofa",
+        "x": 100,
+        "y": 280,
+        "width": 200,
+        "height": 50,
+        "color": "#A9A9A9",
+        "description": null
+      },
+      {
+        "id": 302,
+        "name": "茶几",
+        "type": "table",
+        "x": 160,
+        "y": 250,
+        "width": 80,
+        "height": 40,
+        "color": "#CD853F",
+        "description": null
+      },
+      {
+        "id": 303,
+        "name": "电视柜",
+        "type": "cabinet",
+        "x": 350,
+        "y": 60,
+        "width": 150,
+        "height": 30,
+        "color": "#A0522D",
+        "description": null
+      },
+      {
+        "id": 401,
+        "name": "双人床",
+        "type": "bed",
+        "x": 150,
+        "y": 400,
+        "width": 180,
+        "height": 120,
+        "color": "#708090",
+        "description": null
+      },
+      {
+        "id": 402,
+        "name": "衣柜",
+        "type": "closet",
+        "x": 55,
+        "y": 400,
+        "width": 50,
+        "height": 100,
+        "color": "#A0522D",
+        "description": null
+      },
+      {
+        "id": 501,
+        "name": "操作台",
+        "type": "counter",
+        "x": 510,
+        "y": 60,
+        "width": 230,
+        "height": 40,
+        "color": "#BDB76B",
+        "description": null
+      },
+      {
+        "id": 502,
+        "name": "冰箱",
+        "type": "fridge",
+        "x": 510,
+        "y": 100,
+        "width": 40,
+        "height": 40,
+        "color": "#DCDCDC",
+        "description": null
+      },
+      {
+        "id": 503,
+        "name": "餐桌",
+        "type": "table",
+        "x": 600,
+        "y": 150,
+        "width": 100,
+        "height": 80,
+        "color": "#CD853F",
+        "description": null
+      },
+      {
+        "id": 601,
+        "name": "马桶",
+        "type": "toilet",
+        "x": 530,
+        "y": 280,
+        "width": 40,
+        "height": 40,
+        "color": "#F0F8FF",
+        "description": null
+      },
+      {
+        "id": 602,
+        "name": "洗手池",
+        "type": "sink",
+        "x": 600,
+        "y": 280,
+        "width": 80,
+        "height": 40,
+        "color": "#F0F8FF",
+        "description": null
+      },
+      {
+        "id": 603,
+        "name": "淋浴区",
+        "type": "shower",
+        "x": 520,
+        "y": 450,
+        "width": 100,
+        "height": 80,
+        "color": "#ADD8E6",
+        "description": null
+      }
     ]
   }
 }
