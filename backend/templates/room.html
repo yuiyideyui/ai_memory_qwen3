@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <title>家具符号优化版住宅平面图</title>
+    <style>
+        #roomCanvas {
+            border: 2px solid #555;
+            background-color: #fcfcfc;
+        }
+        .container {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+        }
+        h1 {
+            color: #2F4F4F;
+        }
+        p {
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>🛋️ 碰撞修复版单层住宅平面图</h1>
+        <p>卧室门碰撞逻辑已优化。请使用 **W A S D** 键测试人物 (👤) 穿过所有门。</p>
+        <canvas id="roomCanvas" width="800" height="600"></canvas>
+    </div>
+
+    <script>
+        // 1. 完整的 JSON 房屋数据
+        const roomData = {
+          "name": "单层住宅平面图",
+          "width": 800,
+          "height": 600,
+          "scale": 10,
+          "roles": [
+            {
+              "name": "user",
+              "type": "person",
+              "x": 100,
+              "y": 100,
+              "size": 20,
+              "avatar": "👤"
+            }
+          ],
+          "layout": {
+            "areas": [
+              { "id": "A1", "name": "客厅", "x": 50, "y": 50, "width": 450, "height": 300, "color": "#F0FFF0" },
+              { "id": "A2", "name": "卧室", "x": 50, "y": 350, "width": 450, "height": 200, "color": "#F5FFFA" },
+              { "id": "A3", "name": "厨房", "x": 500, "y": 50, "width": 250, "height": 200, "color": "#FFF5EE" },
+              { "id": "A4", "name": "卫生间", "x": 500, "y": 250, "width": 250, "height": 300, "color": "#F0FFFF" }
+            ],
+            "walls": [
+              // 外部墙壁
+              { "id": 1, "x1": 50, "y1": 50, "x2": 750, "y2": 50, "thickness": 10, "isOuter": true },
+              { "id": 2, "x1": 750, "y1": 50, "x2": 750, "y2": 550, "thickness": 10, "isOuter": true },
+              { "id": 3, "x1": 750, "y1": 550, "x2": 50, "y2": 550, "thickness": 10, "isOuter": true },
+              { "id": 4, "x1": 50, "y1": 550, "x2": 50, "y2": 50, "thickness": 10, "isOuter": true },
+              // 内部墙壁
+              { "id": 5, "x1": 50, "y1": 350, "x2": 500, "y2": 350, "thickness": 5 }, // 客厅/卧室之间的墙
+              { "id": 6, "x1": 500, "y1": 50, "x2": 500, "y2": 550, "thickness": 5 }, // 中央分隔墙
+              { "id": 7, "x1": 500, "y1": 250, "x2": 750, "y2": 250, "thickness": 5 } // 厨房/卫生间之间的墙
+            ],
+            "doors": [
+              { "id": 101, "name": "入户门", "x": 50, "y": 150, "width": 60, "thickness": 10, "direction": "vertical", "area": "A1" },
+              { "id": 102, "name": "卧室门", "x": 285, "y": 350, "width": 60, "thickness": 5, "direction": "horizontal", "area": "A2" }, 
+              { "id": 103, "name": "厨房门", "x": 500, "y": 150, "width": 60, "thickness": 5, "direction": "vertical", "area": "A3" },
+              { "id": 104, "name": "卫生间门", "x": 500, "y": 400, "width": 60, "thickness": 5, "direction": "vertical", "area": "A4" }
+            ],
+            "windows": [
+              { "id": 201, "x": 150, "y": 50, "width": 150, "thickness": 10, "direction": "horizontal" },
+              { "id": 202, "x": 150, "y": 550, "width": 150, "thickness": 10, "direction": "horizontal" }
+            ],
+            "furniture": [
+              { "id": 301, "name": "沙发", "type": "sofa", "x": 100, "y": 280, "width": 200, "height": 50, "color": "#A9A9A9" },
+              { "id": 302, "name": "茶几", "type": "table", "x": 160, "y": 250, "width": 80, "height": 40, "color": "#CD853F" }, 
+              { "id": 303, "name": "电视柜", "type": "cabinet", "x": 350, "y": 60, "width": 150, "height": 30, "color": "#A0522D" },
+              { "id": 401, "name": "双人床", "type": "bed", "x": 150, "y": 400, "width": 180, "height": 120, "color": "#708090" },
+              { "id": 402, "name": "衣柜", "type": "closet", "x": 55, "y": 400, "width": 50, "height": 100, "color": "#A0522D" },
+              { "id": 501, "name": "L型橱柜", "type": "counter", "x": 520, "y": 60, "width": 210, "height": 40, "color": "#8FBC8F" }, 
+              { "id": 502, "name": "L型橱柜", "type": "counter", "x": 710, "y": 100, "width": 40, "height": 140, "color": "#8FBC8F" }, 
+              { "id": 503, "name": "冰箱", "type": "fridge", "x": 505, "y": 60, "width": 30, "height": 40, "color": "#C0C0C0" },
+              { "id": 601, "name": "马桶", "type": "toilet", "x": 550, "y": 300, "width": 40, "height": 40, "color": "#FFFFFF" },
+              { "id": 602, "name": "洗脸台", "type": "sink", "x": 650, "y": 300, "width": 80, "height": 40, "color": "#FFFFFF" },
+              { "id": 603, "name": "淋浴区", "type": "shower", "x": 550, "y": 450, "width": 100, "height": 80, "color": "#ADD8E6" }
+            ]
+          }
+        };
+
+        const canvas = document.getElementById('roomCanvas');
+        const ctx = canvas.getContext('2d');
+        const person = roomData.roles[0];
+        const MOVE_SPEED = 3; 
+        
+        // 辅助函数：绘制家具名称 (保持不变)
+        function drawLabel(item) {
+            ctx.fillStyle = '#111';
+            ctx.font = '10px Arial';
+            ctx.textAlign = 'left';
+            ctx.fillText(item.name, item.x + 3, item.y + 10);
+        }
+
+        // 2. 增强的绘制函数 (保持不变)
+        function drawRoom() {
+            ctx.clearRect(0, 0, roomData.width, roomData.height);
+
+            // 绘制区域和名称
+            roomData.layout.areas.forEach(area => {
+                ctx.fillStyle = area.color;
+                ctx.fillRect(area.x, area.y, area.width, area.height);
+                ctx.fillStyle = '#333';
+                ctx.font = '16px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(area.name, area.x + area.width / 2, area.y + 20);
+            });
+
+            // 绘制墙壁
+            roomData.layout.walls.forEach(wall => {
+                ctx.beginPath();
+                ctx.strokeStyle = wall.isOuter ? '#000000' : '#8B4513'; 
+                ctx.lineWidth = wall.thickness;
+                ctx.lineCap = 'butt';
+                ctx.moveTo(wall.x1, wall.y1);
+                ctx.lineTo(wall.x2, wall.y2);
+                ctx.stroke();
+            });
+
+            // 绘制门 (用白色矩形表示开口)
+            roomData.layout.doors.forEach(door => {
+                ctx.fillStyle = '#FFFFFF'; 
+                ctx.strokeStyle = '#8B4513';
+                ctx.lineWidth = 1;
+
+                if (door.direction === 'vertical') {
+                    const x = door.x;
+                    ctx.fillRect(x - door.thickness / 2, door.y, door.thickness, door.width);
+                } else {
+                    const y = door.y;
+                    ctx.fillRect(door.x, y - door.thickness / 2, door.width, door.thickness);
+                }
+            });
+            
+            // 绘制窗户
+            roomData.layout.windows.forEach(window => {
+                const lineY = window.y;
+                const halfThickness = window.thickness / 2;
+
+                ctx.strokeStyle = '#4682B4';
+                ctx.lineWidth = window.thickness;
+                ctx.beginPath();
+                ctx.moveTo(window.x, lineY);
+                ctx.lineTo(window.x + window.width, lineY);
+                ctx.stroke();
+
+                ctx.strokeStyle = '#ADD8E6';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(window.x, lineY - halfThickness * 0.5);
+                ctx.lineTo(window.x + window.width, lineY - halfThickness * 0.5);
+                ctx.moveTo(window.x, lineY + halfThickness * 0.5);
+                ctx.lineTo(window.x + window.width, lineY + halfThickness * 0.5);
+                ctx.stroke();
+            });
+
+
+            // 绘制家具
+            roomData.layout.furniture.forEach(item => {
+                ctx.strokeStyle = '#333';
+                ctx.lineWidth = 1;
+
+                if (item.type === 'bed') {
+                    // 绘制床：矩形 + 床头 + 枕头
+                    ctx.fillStyle = item.color;
+                    ctx.fillRect(item.x, item.y, item.width, item.height);
+                    ctx.fillStyle = '#555';
+                    ctx.fillRect(item.x, item.y, item.width, 10);
+                    ctx.fillStyle = '#FFFFFF'; 
+                    ctx.fillRect(item.x + 10, item.y + 15, 40, 25);
+                    ctx.fillRect(item.x + item.width - 50, item.y + 15, 40, 25);
+                    ctx.strokeStyle = '#FFFFFF';
+                    ctx.setLineDash([5, 5]);
+                    ctx.beginPath();
+                    ctx.rect(item.x, item.y, item.width, item.height);
+                    ctx.stroke();
+                    ctx.setLineDash([]); 
+
+                } else if (item.type === 'sofa') {
+                    // 绘制沙发：主体 + 靠背 + 扶手
+                    const backHeight = 8;
+                    const armWidth = 8;
+                    ctx.fillStyle = item.color;
+                    ctx.fillRect(item.x, item.y, item.width, item.height);
+                    ctx.fillStyle = '#555';
+                    ctx.fillRect(item.x, item.y, item.width, backHeight);
+                    ctx.fillRect(item.x, item.y, armWidth, item.height);
+                    ctx.fillRect(item.x + item.width - armWidth, item.y, armWidth, item.height);
+                    ctx.strokeStyle = '#FFFFFF';
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.moveTo(item.x + item.width / 3, item.y + backHeight);
+                    ctx.lineTo(item.x + item.width / 3, item.y + item.height);
+                    ctx.moveTo(item.x + item.width * 2 / 3, item.y + backHeight);
+                    ctx.lineTo(item.x + item.width * 2 / 3, item.y + item.height);
+                    ctx.stroke();
+
+                } else if (item.type === 'table') {
+                    // 绘制茶几：矩形 + 标注线
+                    ctx.fillStyle = item.color;
+                    ctx.fillRect(item.x, item.y, item.width, item.height);
+                    ctx.strokeStyle = '#555';
+                    ctx.beginPath();
+                    ctx.moveTo(item.x, item.y);
+                    ctx.lineTo(item.x + item.width, item.y + item.height);
+                    ctx.moveTo(item.x + item.width, item.y);
+                    ctx.lineTo(item.x, item.y + item.height);
+                    ctx.stroke();
+
+                } else if (item.type === 'toilet') {
+                    // 绘制马桶：水箱和座圈
+                    const centerX = item.x + item.width / 2;
+                    const centerY = item.y + item.height / 2 + 5;
+                    ctx.fillStyle = '#C0C0C0';
+                    ctx.fillRect(item.x, item.y, item.width, 10);
+                    ctx.strokeStyle = '#555';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.arc(centerX, centerY, 15, Math.PI * 0.25, Math.PI * 1.75);
+                    ctx.stroke();
+
+                } else if (item.type === 'sink') {
+                    // 绘制洗脸台：台面 + 水槽（矩形水槽）
+                    ctx.fillStyle = item.color;
+                    ctx.fillRect(item.x, item.y, item.width, item.height);
+                    ctx.strokeStyle = '#4682B4';
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(item.x + 10, item.y + 10, item.width - 20, item.height - 20);
+                    
+                } else if (item.type === 'counter' || item.type === 'cabinet' || item.type === 'fridge' || item.type === 'closet') {
+                    // 橱柜/电视柜/冰箱/衣柜：双线表示台面/门厚度
+                    ctx.fillStyle = item.color;
+                    ctx.fillRect(item.x, item.y, item.width, item.height);
+                    ctx.strokeStyle = '#333';
+                    ctx.lineWidth = 1;
+                    ctx.strokeRect(item.x, item.y, item.width, item.height);
+                    ctx.strokeStyle = '#777';
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.moveTo(item.x + 3, item.y + 3);
+                    ctx.lineTo(item.x + item.width - 3, item.y + 3);
+                    ctx.moveTo(item.x + 3, item.y + item.height - 3);
+                    ctx.lineTo(item.x + item.width - 3, item.y + item.height - 3);
+                    ctx.stroke();
+                
+                } else if (item.type === 'shower') {
+                    // 绘制淋浴区 (虚线表示区域)
+                    ctx.fillStyle = item.color;
+                    ctx.fillRect(item.x, item.y, item.width, item.height);
+                    ctx.strokeStyle = '#4682B4';
+                    ctx.lineWidth = 2;
+                    ctx.setLineDash([5, 5]); 
+                    ctx.strokeRect(item.x, item.y, item.width, item.height);
+                    ctx.setLineDash([]); 
+                
+                } else {
+                    // 默认矩形绘制
+                    ctx.fillStyle = item.color;
+                    ctx.fillRect(item.x, item.y, item.width, item.height);
+                    ctx.strokeStyle = '#333';
+                    ctx.strokeRect(item.x, item.y, item.width, item.height);
+                }
+                
+                drawLabel(item);
+            });
+
+            // 绘制人物
+            ctx.fillStyle = '#FF4500';
+            ctx.beginPath();
+            ctx.arc(person.x, person.y, person.size / 2, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.font = `${person.size}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(person.avatar, person.x, person.y);
+        }
+
+        // 3. 碰撞检测逻辑 (已优化门洞判定区域)
+        function checkCollision(nextX, nextY) {
+            const halfSize = person.size / 2;
+            const newRect = { x: nextX - halfSize, y: nextY - halfSize, width: person.size, height: person.size };
+
+            // 3.1 家具碰撞
+            for (const item of roomData.layout.furniture) {
+                const itemRect = { x: item.x, y: item.y, width: item.width, height: item.height };
+                if (newRect.x < itemRect.x + itemRect.width && newRect.x + newRect.width > itemRect.x &&
+                    newRect.y < itemRect.y + itemRect.height && newRect.y + newRect.height > itemRect.y) {
+                    return true;
+                }
+            }
+            
+            // 3.2 墙壁/门窗碰撞 (核心优化)
+            for (const wall of roomData.layout.walls) {
+                let wallRect;
+                if (wall.x1 === wall.x2) { 
+                    const x = wall.x1 - wall.thickness / 2; const y = Math.min(wall.y1, wall.y2);
+                    wallRect = { x: x, y: y, width: wall.thickness, height: Math.abs(wall.y1 - wall.y2) };
+                } else { 
+                    const y = wall.y1 - wall.thickness / 2; const x = Math.min(wall.x1, wall.x2);
+                    wallRect = { x: x, y: y, width: Math.abs(wall.x1 - wall.x2), height: wall.thickness };
+                }
+
+                // 检查人物是否与墙壁矩形重叠
+                if (newRect.x < wallRect.x + wallRect.width && newRect.x + newRect.width > wallRect.x &&
+                    newRect.y < wallRect.y + wallRect.height && newRect.y + newRect.height > wallRect.y) {
+                    
+                    let isCollidingWithDoor = false;
+                    const DOOR_TOLERANCE = person.size + 2; // 关键：将门洞的判定厚度扩大到略大于人物尺寸
+                    
+                    for (const door of roomData.layout.doors) {
+                        let doorRect;
+                        
+                        if (door.direction === 'vertical') {
+                            // 垂直门: 门洞的 X 轴厚度扩大
+                            const doorX = door.x - DOOR_TOLERANCE / 2;
+                            doorRect = { x: doorX, y: door.y, width: DOOR_TOLERANCE, height: door.width }; 
+                        } else {
+                            // 水平门: 门洞的 Y 轴厚度扩大
+                            const doorY = door.y - DOOR_TOLERANCE / 2;
+                            doorRect = { x: door.x, y: doorY, width: door.width, height: DOOR_TOLERANCE };
+                        }
+
+                        // 检查人物是否与加宽后的门洞区域重叠
+                        if (newRect.x < doorRect.x + doorRect.width && newRect.x + newRect.width > doorRect.x &&
+                            newRect.y < doorRect.y + doorRect.height && newRect.y + newRect.height > doorRect.y) {
+                            isCollidingWithDoor = true;
+                            break;
+                        }
+                    }
+                    
+                    if (!isCollidingWithDoor) {
+                        return true; // 撞到墙壁了，且不在加宽的门洞区域内，发生碰撞
+                    }
+                }
+            }
+            // 默认无碰撞
+            return false;
+        }
+
+
+        // 4. 持续移动逻辑 (保持不变)
+        const keys = {};
+        document.addEventListener('keydown', (e) => { keys[e.key.toUpperCase()] = true; });
+        document.addEventListener('keyup', (e) => { keys[e.key.toUpperCase()] = false; });
+
+        function gameLoop() {
+            let nextX = person.x;
+            let nextY = person.y;
+            let moved = false;
+
+            if (keys['W']) { nextY -= MOVE_SPEED; moved = true; }
+            if (keys['S']) { nextY += MOVE_SPEED; moved = true; }
+            if (keys['A']) { nextX -= MOVE_SPEED; moved = true; }
+            if (keys['D']) { nextX += MOVE_SPEED; moved = true; }
+
+            if (moved) {
+                const targetX = nextX;
+                const targetY = nextY;
+                let finalX = person.x;
+                let finalY = person.y;
+
+                // 尝试独立移动 X 轴和 Y 轴，处理斜向碰撞
+                if (!checkCollision(targetX, person.y)) { finalX = targetX; }
+                if (!checkCollision(person.x, targetY)) { finalY = targetY; }
+
+                if (finalX !== person.x || finalY !== person.y) {
+                    person.x = finalX;
+                    person.y = finalY;
+                    drawRoom();
+                }
+            }
+            // 循环调用下一帧
+            requestAnimationFrame(gameLoop);
+        }
+
+        // 启动
+        drawRoom();
+        requestAnimationFrame(gameLoop);
+    </script>
+
+</body>
+</html>

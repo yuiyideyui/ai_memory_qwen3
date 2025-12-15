@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>AI 多角色聊天</title>
+    <script src="/static/script.js"></script>
+</head>
+
+<body>
+    <h2>AI 多角色聊天</h2>
+    <label>选择角色:</label>
+    <!-- index.html -->
+    <button onclick="clearMemory()">清除角色记忆</button>
+    <button onclick="clearAllMemories()">清除所有记忆</button>
+    <select id="roleSelect"></select>
+    <button onclick="addRole()">新增角色</button>
+
+    <br><br>
+    <textarea id="userInput" rows="4" cols="50" placeholder="输入问题..."></textarea>
+    <br>
+    <button onclick="sendMessage()">发送</button>
+    <pre id="chatBox"></pre>
+</body>
+
+<script>
+    function clearMemory() {
+        const role = document.getElementById("roleSelect").value;
+        fetch("/clear_memory", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ role: role })
+        })
+            .then(res => res.json())
+            .then(data => {
+                alert(data.message);
+            });
+    }
+
+    function clearAllMemories() {
+        if (!confirm("确认清除所有角色的记忆？")) return;
+        fetch("/clear_all_memories", {
+            method: "POST"
+        })
+            .then(res => res.json())
+            .then(data => {
+                alert(data.message);
+            });
+    }
+</script>
+
+</html>
