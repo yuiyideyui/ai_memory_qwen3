@@ -688,8 +688,8 @@
             const roleName = document.getElementById("newRoleName").value;
             if (roleName) {
                 // 使用用户设置的位置作为 AI 的起始位置
-                const startX = userPosition.x || 100;
-                const startY = userPosition.y || 100;
+                const startX = 100;
+                const startY = 100;
 
                 if (checkCollision(startX, startY)) {
                     alert(`无法在 (${startX}, ${startY}) 添加角色，请选择空闲位置。`);

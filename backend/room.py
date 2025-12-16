@@ -166,6 +166,7 @@ def remove_role_from_room(role_name: str, room_name: str = "main"):
     save_room(room, room_name)
     
 def clear_room(room_name: str = "main"):
+    
     """清空房间中的所有非用户角色"""
     room = get_room(room_name)
     user_role = next((role for role in room.roles if role.name.lower() == 'user'), None)

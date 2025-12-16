@@ -1,3 +1,4 @@
+# memory_manager.py
 from zoneinfo import ZoneInfo
 import chromadb
 from chromadb.config import Settings
@@ -11,6 +12,10 @@ from typing import List, Dict, Optional
 from chromadb import Client
 # 引入必要的 Pydantic 依赖
 from pydantic import BaseModel, Field
+
+# 导入时间管理器
+from time_manager import get_accelerated_time
+
 # -----------------------
 # 初始化 ChromaDB 客户端
 # -----------------------
@@ -112,10 +117,9 @@ memory_manager = MemoryManager()
 def add_memory(role: str, content: str, mtype: str = "note") -> None:
     try:
         memory_id = str(uuid.uuid4())
-        current_time = datetime.now(CHINA_TZ)
-        virtual_time_seconds = (current_time - START_TIME).total_seconds() * 20
-        virtual_time = START_TIME + timedelta(seconds=virtual_time_seconds)
-        timestamp = virtual_time.isoformat()
+        # 使用统一的时间管理器获取时间
+        time_info = get_accelerated_time()
+        timestamp = time_info["virtual_time"].isoformat()
 
         importance = memory_manager.calculate_importance(content, mtype, role)
         
@@ -145,13 +149,13 @@ class RestStateManager:
     
     def set_rest_state(self, role: str, is_resting: bool, rest_type: str = "sleep"):
         if is_resting:
-            current_time = datetime.now(CHINA_TZ)
+            current_time = get_accelerated_time()["virtual_time"]
             self.rest_states[role] = {
                 "is_resting": True,
                 "rest_start_time": current_time.isoformat(),
                 "rest_type": rest_type
             }
-            print(f"角色 {role} 进入{rest_type}状态")
+            print(f"{current_time.isoformat()}角色 {role} 进入{rest_type}状态")
         else:
             if role in self.rest_states:
                 del self.rest_states[role]
@@ -174,7 +178,7 @@ def check_rest_state(role: str, current_time: datetime) -> dict:
     try:
         # 简单基于时间的决策（可以扩展为AI决策）
         hour = current_time.hour
-        
+        print(f"检查角色 {role} 休息状态 - 当前时间: {current_time.isoformat()} (小时: {hour})")
         # 夜间睡眠时间（22:00-6:00）
         if 22 <= hour or hour <= 6:
             return {"should_rest": True, "rest_type": "sleep", "reason": "夜间休息时间"}
@@ -191,7 +195,7 @@ def check_rest_state(role: str, current_time: datetime) -> dict:
 def update_rest_states():
     """更新所有角色的休息状态"""
     try:
-        current_time = datetime.now(CHINA_TZ)
+        current_time = get_accelerated_time()["virtual_time"]
         roles = list_roles()
         
         for role in roles:
@@ -381,11 +385,8 @@ def delete_all_collections():
 def update_time_memory(role: str, current_time_info: dict):
     """更新时间记忆（修改或创建唯一的时间记忆）"""
     try:
-        # 🔥 使用中国时区
-        current_time = datetime.now(CHINA_TZ)
-        virtual_time_seconds = (current_time - START_TIME).total_seconds() * 20
-        virtual_time = START_TIME + timedelta(seconds=virtual_time_seconds)
-        timestamp = virtual_time.isoformat()
+        # 🔥 使用统一的时间管理器提供的时间信息
+        timestamp = current_time_info["virtual_time"].isoformat()
         
         # 格式化时间记忆内容
         time_memory_content = f"当前时间：{timestamp}。"
