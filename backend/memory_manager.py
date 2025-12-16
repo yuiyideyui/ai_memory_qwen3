@@ -2,6 +2,8 @@
 from zoneinfo import ZoneInfo
 import chromadb
 from chromadb.config import Settings
+from roomAsyc import RoomSenseParser
+from room import get_room
 from config import CHROMA_DB_DIR
 import uuid
 from datetime import datetime, timezone, timedelta
@@ -338,7 +340,39 @@ def query_memory(role: str, query: str, top_k: int = 100000) -> List[Dict]:
             access_count = mem["metadata"].get("access_count", 0)
             mem_type = mem["metadata"].get("type", "unknown")
             print(f"  {i+1}. [{mem_type}] 重要性:{importance:.1f} 访问:{access_count} - {mem['content'][:50]}...")
-        
+
+
+        # ✅ 2. 获取并解析房间数据
+        try:
+            room = get_room()
+            room_data = room.model_dump()
+            
+            # 初始化解析器
+            parser = RoomSenseParser(room_data)
+            
+            # 解析当前角色的主视角 (假设变量 role 是当前角色的名称，如 "user" 或 "yui1")
+            user_view = parser.parse_for_role(role)
+            print('user_view',user_view)
+        except Exception as e:
+            # 容错处理：如果解析失败，记录简化的错误信息，避免对话中断
+            user_view = f"你当前身处室内，但视觉观察受限（解析错误: {e}）"
+
+        # ✅ 3. 获取时间信息
+        time_info = get_accelerated_time()
+        timestamp = time_info["virtual_time"].isoformat()
+
+        # ✅ 4. 写入记忆
+        final_mems.append({
+            "id": f"spatial_sense_{timestamp}", # 建议 ID 加上时间戳区分
+            "content": user_view,
+            "metadata": {
+                "type": "room_state",
+                "created_at": timestamp,
+                "importance": 10.0,
+                "access_count": 0
+            }
+        })
+
         return final_mems
         
     except Exception as e:
