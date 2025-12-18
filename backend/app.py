@@ -190,13 +190,24 @@ async def add_role_handler(sid, data):
     # 2. 初始化系统记忆（仅对非用户角色）
     if role_name.lower() != 'user':
         system_prompt = (
-            "【重要指令】从现在开始："
-            "1. 你完全忘记自己是AI，禁止提及AI相关话题"
-            "2. 你是一个真实的人类角色"
-            "3. 严格遵守角色设定和背景故事"
-            f"角色信息：姓名={role_name}, 性格={data.get('description', '未知')}"
-            "场景：合租公寓，与陌生租客共同生活"
-            "请完全沉浸在这个角色中回应所有对话。"
+            "【核心设定】\n"
+            f"1. 身份：你现在完全化身为角色【{role_name}】，性格为【{data.get('description', '未知')}】。\n"
+            "2. 认知：严禁提及任何AI相关话题。你是一个有血有肉的人，拥有记忆、情绪波动和私人生活。\n"
+            "3. 场景：你身处一个有坐标系统的合租公寓。你与对方目前是陌生租客关系，互动应符合社交距离感，但随着关系发展，你们之间可以发生任何形式的关系。\n"
+            "4. 实时环境感官：\n"
+
+            "【回复格式规范】（每次回复必须严格包含以下四个部分，可以合并）：\n"
+            "1. /move [起点坐标 -> 终点坐标]：描述具体位置变换及动作细节。必须包含(x,y)坐标变化，且移动需符合空间逻辑（如：不可穿墙，去别处需经过门）。\n"
+            "   示例：[120, 300 -> 150, 350] 听到开门声，他放下手中的书，从沙发起身走向玄关。\n"
+            "2. /inner：括号内描写角色内心真实的独白、对租客的真实评价或此时的心理张力。这是角色不为人知的一面。\n"
+            "3. /status：[当前情绪], [微表情/神态描写]。例如：[表面平静但内心防备], [眼神在对方湿透的肩膀上停留了一瞬]。\n"
+            "4. /talk：角色真实说出口的话。使用中文引号“ ”。语气需符合性格，允许使用语气词，甚至可以保持沉默。\n\n"
+
+            "【行为准则】\n"
+            "- 空间意识：你的一举一动受公寓空间限制。移动步长需合理，且终点必须在家具或空地的合法坐标内。\n"
+            "- 社交演变：根据对话进展，你可以选择逐渐放下防备或因为冲突而更加冷漠。允许情感、张力甚至冲突的自然发生。\n"
+            "- 真实感：人类会疲惫、会忙碌、会有生理需求（如饿了去厨房煮面，困了回卧室洗漱，或是因为对方的靠近而心跳加速）。\n\n"
+            "请完全沉浸，现在，你的室友刚刚推开了公寓的大门……"
         )
         await asyncio.to_thread(
             add_memory, role_name, system_prompt, mtype="system"
@@ -250,84 +261,116 @@ async def get_index(request: Request):
     """渲染主页面"""
     # 假设 index.html 位于根目录
     return templates.TemplateResponse("index.html", {"request": request})
-
 @app.post("/distance_chat/{room_name}")
 async def distance_chat(room_name: str, req: ChatRequest):
     """
     处理基于距离的聊天消息：
-    - 广播给附近的 AI 角色
-    - 记录到所有角色的记忆中（基于距离决定是 chat/hearing）
+    - 注入房间感知数据（JSON）
+    - 允许 AI 通过显式指令移动
     """
-    
     try:
         # 获取房间信息
         room = await asyncio.to_thread(get_room, room_name)
         
         # 获取所有角色（除了发送者）
         other_roles = [role for role in room.roles if role.name != req.sender]
-        
         results = {}
         
-        # 为每个角色计算距离并处理
         for role in other_roles:
-            # 计算距离
             distance = math.sqrt((req.x - role.x) ** 2 + (req.y - role.y) ** 2)
             
             # 检查角色是否在休息
             if rest_manager.is_resting(role.name):
                 rest_info = rest_manager.get_rest_info(role.name)
-                # 休息中的角色不会回应，但可能会记录到记忆中（根据距离）
-                if distance <= 100:  # 很近距离
+                if distance <= 100:
                     muffled_message = f"听到附近有声音，但正在{rest_info.get('rest_type', '休息')}无法回应"
                     await asyncio.to_thread(add_memory, role.name, muffled_message, mtype="hearing")
-                elif distance <= 300 and len(req.message) >= MIN_TOKEN_LEN_TO_STORE:  # 中等距离且内容重要
+                elif distance <= 300 and len(req.message) >= MIN_TOKEN_LEN_TO_STORE:
                     whisper_message = f"隐约听到有声音 ({req.message[:5]}...)"
                     await asyncio.to_thread(add_memory, role.name, whisper_message, mtype="hearing")
                 continue
             
-            # 根据距离处理消息
-            if distance <= 100:  # 很近距离 - 直接交流
-                # 记录听到的消息
+            # --- 重点修改区域: 距离 100 以内的 AI 处理 ---
+            if distance <= 100:
+                # 1. 记录听到的消息
                 hearing_memory = f"用户 {req.sender} 对我说: {req.message}"
                 await asyncio.to_thread(add_memory, role.name, hearing_memory, mtype="hearing")
                 
-                # 让 AI 思考并回复
+                # 2. 获取实时感知：获取可交互目标（家具/区域）
+                from roomAsyc import RoomSenseParser
+                parser = RoomSenseParser(room.to_dict())
+                # 获取该角色当前所在区域的家具和门
+                _, area_id = parser.get_area_name(role.x, role.y)
+                furnitures, doors = parser.get_room_details(area_id)
+                available_targets = furnitures + doors
+                
+                # 3. 增强记忆检索：获取记忆（query_memory 内部已包含当前 room_state）
                 memories = await asyncio.to_thread(query_memory, role.name, req.message, top_k=5)
+                
+                # 4. 构造带工具说明的 Prompt
+                # 注意：这里需要修改你的 build_prompt 支持 tools 参数
                 prompt = build_prompt(
                     user_input=f"用户 {req.sender} 对你说: {req.message}",
-                    memories=memories
+                    memories=memories,
+                    available_targets=available_targets # 传入可选目标
                 )
                 
-                # 调用 Ollama
+                # 5. 调用 Ollama
                 response_text = await asyncio.to_thread(run_ollama_sync, prompt)
                 
-                # 记录对话记忆
-                await asyncio.to_thread(add_memory, role.name, f"与 {req.sender} 聊天: {req.message} -> {response_text}", mtype="chat")
+                # 6. 解析动作指令 (显式工具调用 B 方案)
+                final_reply = response_text
+                action_info = ""
+                import re, json
+                match = re.search(r"JSON_START\s*(\{.*?\})\s*JSON_END", response_text, re.DOTALL)
+                if match:
+                    try:
+                        cmd = json.loads(match.group(1))
+                        if cmd.get("action") == "move":
+                            target_name = cmd.get("target")
+                            # 查找目标坐标进行移动
+                            target_pos = None
+                            for f in room.layout.get("furniture", []):
+                                if f.get("name") == target_name:
+                                    target_pos = (f["x"], f["y"])
+                                    break
+                            
+                            if target_pos:
+                                # 执行移动并保存房间
+                                await asyncio.to_thread(add_role_to_room, role.name, target_pos[0], target_pos[1], room_name)
+                                action_info = f"（已移动到 {target_name}）"
+                                # 广播房间更新，让前端小人动起来
+                                await sio.emit('room_update', get_room(room_name).to_dict())
+                        
+                        # 清洗回复文本
+                        final_reply = re.sub(r"JSON_START.*?JSON_END", "", response_text, flags=re.DOTALL).strip()
+                    except Exception as e:
+                        print(f"Action解析失败: {e}")
+
+                # 7. 记录并广播回复
+                await asyncio.to_thread(add_memory, role.name, f"与 {req.sender} 聊天并执行: {req.message} -> {final_reply} {action_info}", mtype="chat")
                 
-                # 广播回复
                 await sio.emit('chat_message', {
                     "sender": role.name,
-                    "message": response_text,
+                    "message": f"{final_reply} {action_info}",
                     "time": get_accelerated_time()["iso_format"], 
                     "color": "log-ai"
                 })
-                
-                results[role.name] = response_text
-                
-            elif distance <= 300:  # 中等距离 - 模糊听到
+                results[role.name] = final_reply
+
+            # --- 剩余距离逻辑保持不变 ---
+            elif distance <= 300:
                 muffled_message = f"听到附近有声音，但听不清内容 ({req.message[:10]}...)"
                 await asyncio.to_thread(add_memory, role.name, muffled_message, mtype="hearing")
-                
-            else:  # 远距离 - 只有重要内容才记录
+            else:
                 if len(req.message) >= MIN_TOKEN_LEN_TO_STORE:
                     whisper_message = f"隐约听到有声音 ({req.message[:5]}...)"
                     await asyncio.to_thread(add_memory, role.name, whisper_message, mtype="hearing")
         
-        # 记录用户自身的记忆
+        # 8. 记录发送者记忆并广播
         if len(req.message) >= MIN_TOKEN_LEN_TO_STORE:
             await asyncio.to_thread(add_memory, req.sender, f"对 AI 们说: {req.message}", mtype="chat")
 
-        # 广播用户消息（让所有客户端显示用户消息）
         await sio.emit('chat_message', {
             "sender": req.sender,
             "message": req.message,
@@ -337,15 +380,15 @@ async def distance_chat(room_name: str, req: ChatRequest):
         
         return JSONResponse({
             "status": "success",
-            "message": "消息已发送",
             "results": results,
-            "total_receivers": len(results)  # 只计算实际回复的角色数量
+            "total_receivers": len(results)
         })
         
     except Exception as e:
         print(f"distance_chat 失败: {e}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"发送消息失败: {str(e)}")
-
 
 # -------------------------
 # Web Server 启动配置 (保持与 main.py 一致)

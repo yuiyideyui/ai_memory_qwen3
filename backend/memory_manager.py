@@ -14,7 +14,8 @@ from typing import List, Dict, Optional
 from chromadb import Client
 # 引入必要的 Pydantic 依赖
 from pydantic import BaseModel, Field
-
+import re
+from ollama_client import run_ollama_sync
 # 导入时间管理器
 from time_manager import get_accelerated_time
 
@@ -349,10 +350,9 @@ def query_memory(role: str, query: str, top_k: int = 100000) -> List[Dict]:
             
             # 初始化解析器
             parser = RoomSenseParser(room_data)
-            
+            room_raw_json = json.dumps(room.model_dump(), ensure_ascii=False)
             # 解析当前角色的主视角 (假设变量 role 是当前角色的名称，如 "user" 或 "yui1")
             user_view = parser.parse_for_role(role)
-            print('user_view',user_view)
         except Exception as e:
             # 容错处理：如果解析失败，记录简化的错误信息，避免对话中断
             user_view = f"你当前身处室内，但视觉观察受限（解析错误: {e}）"
@@ -365,6 +365,17 @@ def query_memory(role: str, query: str, top_k: int = 100000) -> List[Dict]:
         final_mems.append({
             "id": f"spatial_sense_{timestamp}", # 建议 ID 加上时间戳区分
             "content": user_view,
+            "metadata": {
+                "type": "room_state",
+                "created_at": timestamp,
+                "importance": 10.0,
+                "access_count": 0
+            }
+        })
+        # ✅ 4. 写入记忆
+        final_mems.append({
+            "id": f"room_json_{timestamp}", # 建议 ID 加上时间戳区分
+            "content": room_raw_json,
             "metadata": {
                 "type": "room_state",
                 "created_at": timestamp,
@@ -522,3 +533,52 @@ def get_role_activity(role_name: str) -> str:
         
     # 默认状态
     return "思考下一步行动"
+
+def handle_npc_response(role_name: str, user_input: str):
+    """
+    處理 NPC 的反應：檢索記憶 -> 感知環境 -> 調用 AI -> 解析動作
+    """
+    # 1. 獲取房間數據與環境感知
+    room_data = get_room().model_dump()
+    parser = RoomSenseParser(room_data)
+    
+    # 2. 檢索記憶（這裡會用到你之前寫的 query_memory，它已經包含了 room_state）
+    mems = query_memory(role_name, user_input)
+    
+    # 3. 獲取當前環境中可交互的目標（用於 Prompt 提示）
+    role_info = next((r for r in room_data["roles"] if r["name"] == role_name), None)
+    available_targets = []
+    if role_info:
+        _, area_id = parser.get_area_name(role_info['x'], role_info['y'])
+        furnitures, doors = parser.get_room_details(area_id)
+        available_targets = furnitures + doors
+
+    # 4. 構建帶有動作指南的 Prompt (這裡假設你更新了 prompt_builder)
+    from prompt_builder import build_prompt_with_tools
+    prompt = build_prompt_with_tools(user_input, mems, available_targets)
+    
+    # 5. 調用 AI
+    ai_raw = run_ollama_sync(prompt)
+    
+    # 6. 解析動作指令 (方案 B: 顯式 JSON)
+    action_log = ""
+    clean_reply = ai_raw
+    match = re.search(r"JSON_START\s*(\{.*?\})\s*JSON_END", ai_raw, re.DOTALL)
+    
+    if match:
+        try:
+            cmd = json.loads(match.group(1))
+            if cmd.get("action") == "move":
+                target = cmd.get("target")
+                # 執行移動邏輯 (這裡需要一個能根據名稱找坐標的函數)
+                # ... 執行移動 ...
+                action_log = f"[{role_name} 決定移動到 {target}]"
+            
+            clean_reply = re.sub(r"JSON_START.*?JSON_END", "", ai_raw, flags=re.DOTALL).strip()
+        except:
+            pass
+            
+    # 7. 儲存對話記憶
+    add_memory(role_name, f"用戶說: {user_input}\n你回答: {clean_reply}", "chat_history")
+    
+    return clean_reply, action_log

@@ -176,3 +176,39 @@ def clear_room(room_name: str = "main"):
         room.roles.append(user_role)
     
     save_room(room, room_name)
+    # room.py
+
+def execute_action(role_name: str, action_data: dict) -> str:
+    """执行 AI 发出的动作指令"""
+    action_type = action_data.get("action")
+    target = action_data.get("target")
+    
+    room = get_room()
+    
+    if action_type == "move":
+        # 寻找家具或区域的中心点坐标
+        target_pos = None
+        
+        # 先找家具
+        for f in room.layout.get("furniture", []):
+            if f["name"] == target:
+                target_pos = (f["x"], f["y"])
+                break
+        
+        # 再找区域（如果家具没找到）
+        if not target_pos:
+            for a in room.layout.get("areas", []):
+                if a["name"] == target:
+                    target_pos = (a["x"] + a["width"]//2, a["y"] + a["height"]//2)
+                    break
+        
+        if target_pos:
+            add_role_to_room(role_name, target_pos[0], target_pos[1])
+            return f"系统：你已成功移动到 {target}。"
+        return f"系统：移动失败，找不到目标 {target}。"
+
+    elif action_type == "interact":
+        # 这里可以扩展，比如开关灯、打开电脑等逻辑
+        return f"系统：你对 {target} 进行了互动。"
+        
+    return "系统：未知动作。"

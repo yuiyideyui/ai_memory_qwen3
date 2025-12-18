@@ -22,3 +22,31 @@ def build_prompt(user_input: str, memories: List[Dict]) -> str:
     请生成自然、简洁的回答。
     """
     return prompt
+# prompt_builder.py
+
+def build_prompt(user_input: str, memories: List[Dict], available_targets: List[str]) -> str:
+    # 构造可交互目标清单
+    targets_str = "、".join(available_targets)
+    
+    tools_section = f"""
+    ### 动作执行指南
+    你可以通过输出以下格式的 JSON 来控制角色动作（每次回复限一个动作）：
+    JSON_START {{"action": "move", "target": "目标名称"}} JSON_END
+    
+    当前环境可移动到的目标：[{targets_str}]
+    """
+    
+    # 之前的记忆提取逻辑...
+    memory_texts = "\n".join([f"[{m['metadata']['type']}]: {m['content']}" for m in memories])
+
+    prompt = f"""
+    {tools_section}
+    
+    ### 环境与记忆
+    {memory_texts}
+    
+    ### 任务
+    用户对你说："{user_input}"
+    请以角色的身份进行对话，并在必要时附带动作 JSON。
+    """
+    return prompt
