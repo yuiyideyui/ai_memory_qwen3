@@ -1,7 +1,9 @@
 # memory_manager.py
+import asyncio
 from zoneinfo import ZoneInfo
 import chromadb
 from chromadb.config import Settings
+from prompt_builder import build_prompt
 from roomAsyc import RoomSenseParser
 from room import get_room
 from config import CHROMA_DB_DIR
@@ -533,52 +535,74 @@ def get_role_activity(role_name: str) -> str:
         
     # 默认状态
     return "思考下一步行动"
-
-def handle_npc_response(role_name: str, user_input: str):
+async def handle_npc_response(role, user_message: str, room):
     """
-    處理 NPC 的反應：檢索記憶 -> 感知環境 -> 調用 AI -> 解析動作
+    处理 AI 的思考、回复和动作执行。
+    保留你原本的感知（Parser）和动作解析逻辑。
     """
-    # 1. 獲取房間數據與環境感知
-    room_data = get_room().model_dump()
-    parser = RoomSenseParser(room_data)
-    
-    # 2. 檢索記憶（這裡會用到你之前寫的 query_memory，它已經包含了 room_state）
-    mems = query_memory(role_name, user_input)
-    
-    # 3. 獲取當前環境中可交互的目標（用於 Prompt 提示）
-    role_info = next((r for r in room_data["roles"] if r["name"] == role_name), None)
-    available_targets = []
-    if role_info:
-        _, area_id = parser.get_area_name(role_info['x'], role_info['y'])
-        furnitures, doors = parser.get_room_details(area_id)
-        available_targets = furnitures + doors
+    from roomAsyc import RoomSenseParser
+    from room import add_role_to_room
+    import re, json
 
-    # 4. 構建帶有動作指南的 Prompt (這裡假設你更新了 prompt_builder)
-    from prompt_builder import build_prompt_with_tools
-    prompt = build_prompt_with_tools(user_input, mems, available_targets)
+    # 1. 实时感知
+    parser = RoomSenseParser(room.to_dict())
+    _, area_id = parser.get_area_name(role.x, role.y)
+    furnitures, doors = parser.get_room_details(area_id)
+    available_targets = furnitures + doors
     
-    # 5. 調用 AI
-    ai_raw = run_ollama_sync(prompt)
+    # 2. 检索记忆
+    memories = await asyncio.to_thread(query_memory, role.name, user_message, top_k=5)
     
-    # 6. 解析動作指令 (方案 B: 顯式 JSON)
-    action_log = ""
-    clean_reply = ai_raw
-    match = re.search(r"JSON_START\s*(\{.*?\})\s*JSON_END", ai_raw, re.DOTALL)
-    
+    # 直接访问属性，并确保在属性为 None 时返回空列表
+    all_furnitures = [f.name for f in (room.layout.furniture or [])]
+    all_doors = [d.name for d in (room.layout.doors or [])]
+    available_targets = all_furnitures + all_doors # 給予全域視野，防止 AI 找不到餐桌
+
+    # 3. 構造 Prompt
+    prompt = build_prompt(
+        user_input=user_message,
+        memories=memories,
+        available_targets=available_targets
+    )
+    response_text = await asyncio.to_thread(run_ollama_sync, prompt)
+    print(f"AI 回复: {response_text}")
+    # 4. 解析动作
+    reply = response_text
+    # 如果 AI 固執地使用 /talk 格式，提取引號內的內容
+    talk_match = re.search(r'/talk\s*“([^”]+)”', reply)
+    if talk_match:
+        reply = talk_match.group(1)
+        
+    # 解析 JSON_START
+    action_status = None
+    json_match = re.search(r"JSON_START\s*(\{.*?\})\s*JSON_END", response_text, re.DOTALL)
+    match = json_match
     if match:
         try:
             cmd = json.loads(match.group(1))
             if cmd.get("action") == "move":
-                target = cmd.get("target")
-                # 執行移動邏輯 (這裡需要一個能根據名稱找坐標的函數)
-                # ... 執行移動 ...
-                action_log = f"[{role_name} 決定移動到 {target}]"
-            
-            clean_reply = re.sub(r"JSON_START.*?JSON_END", "", ai_raw, flags=re.DOTALL).strip()
-        except:
-            pass
-            
-    # 7. 儲存對話記憶
-    add_memory(role_name, f"用戶說: {user_input}\n你回答: {clean_reply}", "chat_history")
-    
-    return clean_reply, action_log
+                target_name = cmd.get("target")
+                # 寻找目标坐标并更新数据库
+                found = False
+                if room.layout.furniture:
+                    for f in room.layout.furniture:
+                        if f.name == target_name:
+                            print(f"移动到家具: {target_name} at ({f.x}, {f.y})")
+                            await asyncio.to_thread(add_role_to_room, role.name, f.x, f.y, room.name)
+                            action_status = f"已移動到 {target_name}"
+                            found = True
+                            break
+                
+                # 如果家具沒找到，找門 (Doors)
+                if not found and room.layout.doors:
+                    for d in room.layout.doors:
+                        if d.name == target_name:
+                            await asyncio.to_thread(add_role_to_room, role.name, d.x, d.y, room.name)
+                            action_status = f"已穿過 {target_name}"
+                            break
+            # 清洗文本内容
+            reply = re.sub(r"JSON_START.*?JSON_END", "", response_text, flags=re.DOTALL).strip()
+        except Exception as e:
+            print(f"Action解析失败: {e}")
+
+    return reply, action_status

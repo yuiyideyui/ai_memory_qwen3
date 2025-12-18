@@ -120,30 +120,47 @@ class Room(BaseModel):
 # -----------------------
 # 房间管理函数 (CRUD)
 # -----------------------
+# room.py
 
 def get_room(room_name: str = "main") -> Room:
-    """读取房间对象，如果文件不存在则尝试加载 main.json 作为默认值"""
+    """读取房间对象，处理 Pydantic 转换和文件降级逻辑"""
     room_file = get_room_file_path(room_name)
-    try:
-        with open(room_file, "r", encoding="utf-8") as f:
-            data = json.load(f)
-            return Room.from_dict(data)
-    except FileNotFoundError:
-        # 如果 room_data/main.json 不存在，尝试加载项目根目录的 main.json
-        default_file = "main.json" 
+    
+    # 1. 尝试从 room_data 文件夹读取
+    if os.path.exists(room_file):
         try:
+            with open(room_file, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                # 使用 Pydantic 的 parse_obj (v1) 或 model_validate (v2)
+                return Room.parse_obj(data) 
+        except Exception as e:
+            print(f"解析房间数据 {room_file} 失败: {e}")
+
+    # 2. 如果没找到，尝试加载项目根目录的备份文件
+    default_file = "main.json"
+    if os.path.exists(default_file):
+        try:
+            print(f"从根目录加载默认备份: {default_file}")
             with open(default_file, "r", encoding="utf-8") as f:
                 data = json.load(f)
-                room = Room.from_dict(data)
-                save_room(room, room_name) # 保存到 room_data 文件夹
+                # 转换数据
+                room = Room.parse_obj(data)
+                # 自动将其保存到 room_data 文件夹，方便下次直接读取
+                save_room(room, room_name)
                 return room
-        except FileNotFoundError:
-             print(f"警告: 默认文件 {default_file} 也不存在。创建空房间。")
-             return Room(name=room_name)
-    except Exception as e:
-        print(f"读取房间数据失败: {e}")
-        return Room(name=room_name)
+        except Exception as e:
+            print(f"解析备份文件失败: {e}")
 
+    # 3. 彻底没找到，创建初始化房间（必须包含 layout 结构，否则后续 f.x 会报错）
+    print(f"警告: 找不到任何房间数据，正在创建空房间: {room_name}")
+    # 确保初始化了 layout 以及空的 furniture 列表
+    empty_layout = Layout(
+        furniture=[], 
+        doors=[], 
+        areas=[], 
+        walls=[]
+    )
+    return Room(name=room_name, layout=empty_layout)
 def save_room(room: Room, room_name: str = "main"):
     """保存房间对象"""
     room_file = get_room_file_path(room_name)

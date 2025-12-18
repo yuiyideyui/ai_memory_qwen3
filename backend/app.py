@@ -23,7 +23,8 @@ from memory_manager import (
     update_rest_states, # 同步状态更新函数
     get_role_activity,   # 获取角色活动状态函数
     CHINA_TZ, # 从 memory_manager 导入时区
-    rest_manager # 导入 rest_manager 实例
+    rest_manager, # 导入 rest_manager 实例
+    handle_npc_response # 导入处理 NPC 回复的函数
 )
 # 从 room.py 导入 Room 模型和房间管理函数
 from room import (
@@ -51,7 +52,7 @@ time_update_task = None  # 用于存储时间更新任务
 # Pydantic 模型
 # -------------------------
 
-class ChatRequest(BaseModel):
+class DistanceChatPayload(BaseModel):
     sender: str
     message: str
     x: int
@@ -195,14 +196,6 @@ async def add_role_handler(sid, data):
             "2. 认知：严禁提及任何AI相关话题。你是一个有血有肉的人，拥有记忆、情绪波动和私人生活。\n"
             "3. 场景：你身处一个有坐标系统的合租公寓。你与对方目前是陌生租客关系，互动应符合社交距离感，但随着关系发展，你们之间可以发生任何形式的关系。\n"
             "4. 实时环境感官：\n"
-
-            "【回复格式规范】（每次回复必须严格包含以下四个部分，可以合并）：\n"
-            "1. /move [起点坐标 -> 终点坐标]：描述具体位置变换及动作细节。必须包含(x,y)坐标变化，且移动需符合空间逻辑（如：不可穿墙，去别处需经过门）。\n"
-            "   示例：[120, 300 -> 150, 350] 听到开门声，他放下手中的书，从沙发起身走向玄关。\n"
-            "2. /inner：括号内描写角色内心真实的独白、对租客的真实评价或此时的心理张力。这是角色不为人知的一面。\n"
-            "3. /status：[当前情绪], [微表情/神态描写]。例如：[表面平静但内心防备], [眼神在对方湿透的肩膀上停留了一瞬]。\n"
-            "4. /talk：角色真实说出口的话。使用中文引号“ ”。语气需符合性格，允许使用语气词，甚至可以保持沉默。\n\n"
-
             "【行为准则】\n"
             "- 空间意识：你的一举一动受公寓空间限制。移动步长需合理，且终点必须在家具或空地的合法坐标内。\n"
             "- 社交演变：根据对话进展，你可以选择逐渐放下防备或因为冲突而更加冷漠。允许情感、张力甚至冲突的自然发生。\n"
@@ -262,7 +255,7 @@ async def get_index(request: Request):
     # 假设 index.html 位于根目录
     return templates.TemplateResponse("index.html", {"request": request})
 @app.post("/distance_chat/{room_name}")
-async def distance_chat(room_name: str, req: ChatRequest):
+async def distance_chat(room_name: str, req: DistanceChatPayload):
     """
     处理基于距离的聊天消息：
     - 注入房间感知数据（JSON）
@@ -292,71 +285,30 @@ async def distance_chat(room_name: str, req: ChatRequest):
             
             # --- 重点修改区域: 距离 100 以内的 AI 处理 ---
             if distance <= 100:
-                # 1. 记录听到的消息
-                hearing_memory = f"用户 {req.sender} 对我说: {req.message}"
-                await asyncio.to_thread(add_memory, role.name, hearing_memory, mtype="hearing")
+               # 1. 记录听觉记忆
+                await asyncio.to_thread(add_memory, role.name, f"用户 {req.sender} 对我说: {req.message}", mtype="hearing")
                 
-                # 2. 获取实时感知：获取可交互目标（家具/区域）
-                from roomAsyc import RoomSenseParser
-                parser = RoomSenseParser(room.to_dict())
-                # 获取该角色当前所在区域的家具和门
-                _, area_id = parser.get_area_name(role.x, role.y)
-                furnitures, doors = parser.get_room_details(area_id)
-                available_targets = furnitures + doors
+                # 2. 调用 AI 处理逻辑 (此处整合了新逻辑)
+                reply, action_status = await handle_npc_response(role, req.message, room)
                 
-                # 3. 增强记忆检索：获取记忆（query_memory 内部已包含当前 room_state）
-                memories = await asyncio.to_thread(query_memory, role.name, req.message, top_k=5)
+                # 3. 如果发生了动作（移动），关键一步：通过 Socket 广播更新地图
+                if action_status:
+                    # 重新获取更新后的房间状态以确保坐标最新
+                    updated_room = await asyncio.to_thread(get_room, room_name)
+                    await sio.emit('room_update', updated_room.to_dict())
                 
-                # 4. 构造带工具说明的 Prompt
-                # 注意：这里需要修改你的 build_prompt 支持 tools 参数
-                prompt = build_prompt(
-                    user_input=f"用户 {req.sender} 对你说: {req.message}",
-                    memories=memories,
-                    available_targets=available_targets # 传入可选目标
-                )
-                
-                # 5. 调用 Ollama
-                response_text = await asyncio.to_thread(run_ollama_sync, prompt)
-                
-                # 6. 解析动作指令 (显式工具调用 B 方案)
-                final_reply = response_text
-                action_info = ""
-                import re, json
-                match = re.search(r"JSON_START\s*(\{.*?\})\s*JSON_END", response_text, re.DOTALL)
-                if match:
-                    try:
-                        cmd = json.loads(match.group(1))
-                        if cmd.get("action") == "move":
-                            target_name = cmd.get("target")
-                            # 查找目标坐标进行移动
-                            target_pos = None
-                            for f in room.layout.get("furniture", []):
-                                if f.get("name") == target_name:
-                                    target_pos = (f["x"], f["y"])
-                                    break
-                            
-                            if target_pos:
-                                # 执行移动并保存房间
-                                await asyncio.to_thread(add_role_to_room, role.name, target_pos[0], target_pos[1], room_name)
-                                action_info = f"（已移动到 {target_name}）"
-                                # 广播房间更新，让前端小人动起来
-                                await sio.emit('room_update', get_room(room_name).to_dict())
-                        
-                        # 清洗回复文本
-                        final_reply = re.sub(r"JSON_START.*?JSON_END", "", response_text, flags=re.DOTALL).strip()
-                    except Exception as e:
-                        print(f"Action解析失败: {e}")
-
-                # 7. 记录并广播回复
-                await asyncio.to_thread(add_memory, role.name, f"与 {req.sender} 聊天并执行: {req.message} -> {final_reply} {action_info}", mtype="chat")
-                
+                # 4. 广播 AI 聊天消息
+                display_msg = f"{reply} {f'（{action_status}）' if action_status else ''}"
                 await sio.emit('chat_message', {
                     "sender": role.name,
-                    "message": f"{final_reply} {action_info}",
+                    "message": display_msg,
                     "time": get_accelerated_time()["iso_format"], 
                     "color": "log-ai"
                 })
-                results[role.name] = final_reply
+                
+                # 5. 记录 AI 回复记忆
+                await asyncio.to_thread(add_memory, role.name, f"与 {req.sender} 聊天并执行: {req.message} -> {display_msg}", mtype="chat")
+                results[role.name] = reply
 
             # --- 剩余距离逻辑保持不变 ---
             elif distance <= 300:
@@ -443,11 +395,7 @@ def should_store(text: str) -> bool:
 # -------------------------
 # 页面路由
 # -------------------------
-@app.get("/", response_class=HTMLResponse)
-def index(request: Request):
-    """返回主页 HTML"""
-    roles = list_roles()
-    return templates.TemplateResponse("index.html", {"request": request, "roles": roles})
+
 
 @app.get("/chromadb", response_class=HTMLResponse)
 def chromadb_viewer(request: Request):
@@ -813,5 +761,4 @@ async def shutdown_event():
 # 挂载静态文件和模板
 # -------------------------
 # 假设存在 static 文件夹和 templates 文件夹
-app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")

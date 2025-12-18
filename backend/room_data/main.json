@@ -1,5 +1,5 @@
 {
-  "name": "单层住宅平面图",
+  "name": "main",
   "width": 800,
   "height": 600,
   "scale": 10,
@@ -7,16 +7,16 @@
     {
       "name": "user",
       "type": "person",
-      "x": 164,
-      "y": 94,
+      "x": 137,
+      "y": 231,
       "size": 20,
       "avatar": "👤"
     },
     {
       "name": "yui",
       "type": "person",
-      "x": 274,
-      "y": 137,
+      "x": 100,
+      "y": 280,
       "size": 20,
       "avatar": "👤"
     }
