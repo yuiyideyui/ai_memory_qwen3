@@ -1,2 +1,3 @@
 /env
-/memory_db
+# 忽略数据库文件（包含整个文件夹）
+backend/memory_db/
