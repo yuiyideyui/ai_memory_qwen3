@@ -3,7 +3,6 @@ import asyncio
 from zoneinfo import ZoneInfo
 import chromadb
 from chromadb.config import Settings
-from prompt_builder import build_prompt
 from roomAsyc import RoomSenseParser
 from room import get_room
 from config import CHROMA_DB_DIR
@@ -98,6 +97,7 @@ class MemoryManager:
         # 类型权重
         type_weights = {
             "system": 10.0,    # 系统指令最重要
+            "narrative": 6.0,   # 新增：旁白记忆，比普通对话更重要
             "emotion": 8.0,    # 情感记忆
             "conversation": 3.0, # 对话记忆
             "hearing": 2.0,    # 听到的内容
@@ -540,19 +540,24 @@ async def handle_npc_response(role, user_message: str, room):
     处理 AI 的思考、回复和动作执行。
     保留你原本的感知（Parser）和动作解析逻辑。
     """
+    from prompt_builder import build_prompt
     from roomAsyc import RoomSenseParser
     from room import add_role_to_room
     import re, json
-
+    time_info = get_accelerated_time()
+    current_time_str = time_info["virtual_time"].strftime("%H:%M") # 例如 "08:30" 或 "23:15"
     # 1. 实时感知
     parser = RoomSenseParser(room.to_dict())
-    _, area_id = parser.get_area_name(role.x, role.y)
+    area_name, area_id = parser.get_area_name(role.x, role.y)
     furnitures, doors = parser.get_room_details(area_id)
     available_targets = furnitures + doors
-    
+
+    # 获取完整的房间感知信息（改为使用已实现的 parse_for_role）
+    room_sense = parser.parse_for_role(role.name)
+
     # 2. 检索记忆
     memories = await asyncio.to_thread(query_memory, role.name, user_message, top_k=5)
-    
+
     # 直接访问属性，并确保在属性为 None 时返回空列表
     all_furnitures = [f.name for f in (room.layout.furniture or [])]
     all_doors = [d.name for d in (room.layout.doors or [])]
@@ -562,7 +567,10 @@ async def handle_npc_response(role, user_message: str, room):
     prompt = build_prompt(
         user_input=user_message,
         memories=memories,
-        available_targets=available_targets
+        available_targets=available_targets,
+        room_sense=room_sense,
+        role_name=role.name,
+        time_str=current_time_str  # <--- 這裡傳入時間
     )
     response_text = await asyncio.to_thread(run_ollama_sync, prompt)
     print(f"AI 回复: {response_text}")
@@ -580,7 +588,9 @@ async def handle_npc_response(role, user_message: str, room):
     if match:
         try:
             cmd = json.loads(match.group(1))
-            if cmd.get("action") == "move":
+            action = cmd.get("action")
+            # "move" 和 "talk_and_move" 都視為需要移動
+            if action in ["move", "talk_and_move"]:
                 target_name = cmd.get("target")
                 # 寻找目标坐标并更新数据库
                 found = False
@@ -606,3 +616,4 @@ async def handle_npc_response(role, user_message: str, room):
             print(f"Action解析失败: {e}")
 
     return reply, action_status
+

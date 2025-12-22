@@ -2,8 +2,16 @@ import math
 
 class RoomSenseParser:
     def __init__(self, room_data):
-        self.data = room_data
-        self.layout = room_data.get("layout", {})
+        # 🔥 如果传入的是 Pydantic 模型，自动转为字典
+        if hasattr(room_data, "model_dump"):
+            self.data = room_data.model_dump()
+        elif hasattr(room_data, "dict"):
+            self.data = room_data.dict()
+        else:
+            self.data = room_data
+            
+        # 确保使用字典访问
+        self.layout = self.data.get("layout", {})
 
     def get_distance(self, p1, p2):
         return math.sqrt((p1['x'] - p2['x'])**2 + (p1['y'] - p2['y'])**2)

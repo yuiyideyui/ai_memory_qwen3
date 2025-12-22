@@ -46,10 +46,40 @@ socket.on('room_data_update', function (data) {
     renderLayout(roomData.layout);
     renderRoles(roomData.roles);
 });
-
+// 在你的 socket 初始化代码处添加
+socket.on('room_update', function (data) {
+    console.log("收到地图更新指令");
+    roomData = data; // 更新全局 roomData
+    renderLayout(roomData.layout);
+    renderRoles(roomData.roles);
+});
+// script.js
 socket.on('chat_message', function (data) {
-    const cssClass = data.sender === userName ? "log-user" : "log-ai";
-    logMessage(data.sender, data.message, data.time, cssClass);
+    let message = data.message;
+
+    if (data.sender !== userName) {
+        // 1. 移除 JSON 塊
+        message = message.replace(/JSON_START[\s\S]*?JSON_END/g, "");
+
+        // 2. 處理思維鏈：只保留 [SAY] 之後的內容
+        if (message.includes("[SAY]")) {
+            message = message.split("[SAY]").pop();
+        } else {
+            message = message.replace(/\[THOUGHT\][\s\S]*?(\[|$)/g, "");
+        }
+
+        // 3. 🔥 智能過濾括號內容
+        // 我們只刪除包含系統關鍵字「已移動到」或「已穿過」的括號
+        // 保留 AI 自然產生的神態描寫（如：微微一笑）
+        message = message.replace(/[（\(]已(移動到|穿過).*?[）\)]/g, "");
+
+        message = message.trim();
+    }
+
+    if (message.length > 0) {
+        const cssClass = data.sender === userName ? "log-user" : "log-ai";
+        logMessage(data.sender, message, data.time, cssClass);
+    }
 });
 
 socket.on('time_update', function (data) {

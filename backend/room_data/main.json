@@ -7,16 +7,16 @@
     {
       "name": "user",
       "type": "person",
-      "x": 137,
-      "y": 231,
+      "x": 370,
+      "y": 238,
       "size": 20,
       "avatar": "👤"
     },
     {
       "name": "yui",
       "type": "person",
-      "x": 100,
-      "y": 280,
+      "x": 299,
+      "y": 202,
       "size": 20,
       "avatar": "👤"
     }

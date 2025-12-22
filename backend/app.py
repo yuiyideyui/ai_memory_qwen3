@@ -30,7 +30,7 @@ from memory_manager import (
 from room import (
     Room, get_room, add_role_to_room, remove_role_from_room, clear_room
 )
-from prompt_builder import build_prompt
+from prompt_builder import build_prompt, generate_world_narrative
 from ollama_client import run_ollama_sync
 from config import MIN_TOKEN_LEN_TO_STORE, START_TIME
 from memory_manager import list_roles
@@ -329,12 +329,27 @@ async def distance_chat(room_name: str, req: DistanceChatPayload):
             "time": get_accelerated_time()["iso_format"], 
             "color": "log-user"
         })
-        
+        # 1. 记录回复记忆
+        await asyncio.to_thread(add_memory, role.name, f"回复: {display_msg}", mtype="chat")
+
+        # 2. 插入旁白并广播
+        # 必须使用 to_thread，因为 generate_world_narrative 内部调用了同步的 subprocess (Ollama)
+        narrative = await asyncio.to_thread(generate_world_narrative, role.name)
+
+        if narrative:
+            # 将旁白实时推送给前端 UI
+            await sio.emit('chat_message', {
+                "sender": "世界线",
+                "message": narrative,
+                "type": "narrative",
+                "role": role.name
+            })
         return JSONResponse({
             "status": "success",
             "results": results,
             "total_receivers": len(results)
         })
+        
         
     except Exception as e:
         print(f"distance_chat 失败: {e}")
@@ -423,8 +438,14 @@ async def chat(req: ChatRequest):
     
     # 异步调用同步函数
     mems = await asyncio.to_thread(query_memory, req.role, req.user_input, top_k=100000)
-    
-    prompt = build_prompt(req.user_input, mems)
+
+    prompt = build_prompt(
+        user_input=req.user_input,
+        memories=mems,
+        available_targets=[],  # 通用聊天接口无特定目标
+        room_sense="",  # 通用聊天接口无房间感知
+        role_name=req.role
+    )
     
     # 异步调用同步函数
     reply = await asyncio.to_thread(run_ollama_sync, prompt)
