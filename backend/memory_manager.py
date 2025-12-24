@@ -412,22 +412,6 @@ def delete_collection(role: str) -> bool:
         return False
 
 
-
-def delete_all_collections():
-    """删除所有角色的记忆 collection"""
-    try:
-        # 使用全局的 client 实例
-        collections = client.list_collections()
-        for col in collections:
-            # ✅ 删除整个集合
-            client.delete_collection(name=col.name)
-        return True
-    except Exception as e:
-        # 捕获所有异常并记录详细信息
-        print(f"删除所有集合失败: {e}")
-        return False
-
-
 # 在 memory_manager.py 中添加
 def update_time_memory(role: str, current_time_info: dict):
     """更新时间记忆（修改或创建唯一的时间记忆）"""
@@ -486,40 +470,6 @@ def update_time_memory(role: str, current_time_info: dict):
     except Exception as e:
         print(f"更新时间记忆失败: {e}")
 
-
-def get_latest_time_memory(role: str) -> Optional[Dict]:
-    """获取角色的最新时间记忆"""
-    try:
-        role_safe = sanitize_name(role)
-        existing = [c.name for c in client.list_collections()]
-        if role_safe not in existing:
-            return None
-            
-        collection = client.get_collection(name=role_safe)
-        memories = collection.peek(limit=1000)
-        
-        documents = memories.get("documents", [])
-        metadatas = memories.get("metadatas", [])
-        
-        time_memories = []
-        for i, metadata in enumerate(metadatas):
-            if i < len(documents) and metadata and metadata.get("type") == "time":
-                time_memories.append({
-                    "content": documents[i],
-                    "metadata": metadata
-                })
-        
-        if time_memories:
-            # 返回最新的时间记忆
-            latest = sorted(time_memories, 
-                          key=lambda x: x["metadata"].get("created_at", "1970-01-01T00:00:00"))[-1]
-            return latest
-        
-        return None
-        
-    except Exception as e:
-        print(f"获取时间记忆失败: {e}")
-        return None
 # -----------------------
 # 角色活动状态函数 (App.py 需要)
 # -----------------------
