@@ -58,7 +58,7 @@ def build_prompt(
    - `target`: 目標設施名稱。只有真正決定「出發」時才填寫。
 
 ### 輸出規範
-請務必嚴格遵守以下格式：
+必须遵守以下格式：
 [THOUGHT] (你的內心OS)
 [SAY] (你的實際回覆)
 JSON_START {{"action": "...", "target": "..."}} JSON_END

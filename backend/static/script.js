@@ -56,7 +56,7 @@ socket.on('room_update', function (data) {
 // script.js
 socket.on('chat_message', function (data) {
     let message = data.message;
-
+    console.log(`收到聊天消息来自 ${data}: ${message}`);
     if (data.sender !== userName) {
         // 1. 移除 JSON 塊
         message = message.replace(/JSON_START[\s\S]*?JSON_END/g, "");

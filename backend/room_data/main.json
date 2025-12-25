@@ -5,10 +5,18 @@
   "scale": 10,
   "roles": [
     {
-      "name": "user",
+      "name": "yui",
       "type": "person",
-      "x": 368,
-      "y": 214,
+      "x": 248,
+      "y": 263,
+      "size": 20,
+      "avatar": "👤"
+    },
+    {
+      "name": "mio",
+      "type": "person",
+      "x": 308,
+      "y": 254,
       "size": 20,
       "avatar": "👤"
     }

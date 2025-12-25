@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Memory Manager Dashboard</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; margin: 0; display: flex; height: 100vh; }
+        #sidebar { width: 250px; background: #2c3e50; color: white; padding: 20px; overflow-y: auto; }
+        #main { flex: 1; padding: 20px; overflow-y: auto; }
+        .role-item { padding: 10px; cursor: pointer; border-radius: 4px; margin-bottom: 5px; transition: 0.3s; }
+        .role-item:hover { background: #34495e; }
+        .role-item.active { background: #3498db; }
+        .memory-card { background: white; padding: 15px; border-radius: 8px; margin-bottom: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); position: relative; }
+        .tag { font-size: 0.75rem; padding: 2px 8px; border-radius: 10px; margin-right: 5px; color: white; }
+        .tag-system { background: #e74c3c; }
+        .tag-chat { background: #2ecc71; }
+        .tag-room_state { background: #f1c40f; color: #333; }
+        .importance { color: #e67e22; font-weight: bold; float: right; }
+        .time { font-size: 0.8rem; color: #95a5a6; margin-top: 5px; }
+        .btn-delete { background: #ff7675; color: white; border: none; padding: 10px; border-radius: 5px; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+<div id="sidebar">
+    <h3>角色列表</h3>
+    <div id="role-list">載入中...</div>
+</div>
+
+<div id="main">
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+        <h2 id="current-role-name">請選擇角色</h2>
+        <button id="btn-clear" class="btn-delete" style="display: none;">清空該角色記憶</button>
+    </div>
+    <hr>
+    <div id="memory-container"></div>
+</div>
+
+<script>
+    let currentRole = "";
+
+    async function loadRoles() {
+        const res = await fetch('/api/memory/roles');
+        const data = await res.json();
+        const container = document.getElementById('role-list');
+        container.innerHTML = data.roles.map(role => 
+            `<div class="role-item" onclick="selectRole('${role}')">${role}</div>`
+        ).join('');
+    }
+
+    async function selectRole(role) {
+        currentRole = role;
+        document.getElementById('current-role-name').innerText = `角色記憶: ${role}`;
+        document.getElementById('btn-clear').style.display = 'block';
+        
+        // 更新 UI 選取狀態
+        document.querySelectorAll('.role-item').forEach(el => {
+            el.classList.toggle('active', el.innerText === role);
+        });
+
+        loadMemories(role);
+    }
+
+    async function loadMemories(role) {
+        const res = await fetch(`/api/memory/data/${role}`);
+        const data = await res.json();
+        const container = document.getElementById('memory-container');
+        
+        if (!data.memories || data.memories.length === 0) {
+            container.innerHTML = "<p>尚無記憶數據</p>";
+            return;
+        }
+
+        // 🔥 新增排序邏輯：按時間降序排列 (最新的在前面)
+        const sortedMemories = data.memories.sort((a, b) => {
+            return new Date(b.created_at) - new Date(a.created_at);
+        });
+
+        container.innerHTML = sortedMemories.map(m => `
+            <div class="memory-card">
+                <span class="importance">⭐ ${m.importance ? m.importance.toFixed(1) : '1.0'}</span>
+                <span class="tag tag-${m.type}">${m.type}</span>
+                <div style="margin-top: 10px; line-height: 1.5;">${m.content}</div>
+                <div class="time">🕒 ${m.created_at} | 訪問次數: ${m.access_count || 0}</div>
+            </div>
+        `).join('');
+    }
+
+    document.getElementById('btn-clear').onclick = async () => {
+        if (confirm(`確定要永久刪除 ${currentRole} 的所有記憶嗎？`)) {
+            await fetch(`/api/memory/clear/${currentRole}`, { method: 'DELETE' });
+            loadRoles();
+            document.getElementById('memory-container').innerHTML = "";
+            document.getElementById('btn-clear').style.display = 'none';
+        }
+    };
+
+    loadRoles();
+</script>
+</body>
+</html>

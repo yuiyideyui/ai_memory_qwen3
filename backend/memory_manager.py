@@ -97,7 +97,7 @@ class MemoryManager:
         # 类型权重
         type_weights = {
             "system": 10.0,    # 系统指令最重要
-            "narrative": 6.0,   # 新增：旁白记忆，比普通对话更重要
+            "narrative": 4.0,   # 新增：旁白记忆，比普通对话更重要
             "emotion": 8.0,    # 情感记忆
             "conversation": 3.0, # 对话记忆
             "hearing": 2.0,    # 听到的内容
@@ -565,5 +565,5 @@ async def handle_npc_response(role, user_message: str, room):
         except Exception as e:
             print(f"Action解析失败: {e}")
 
-    return reply, action_status
+    return reply, action_status,cmd
 
